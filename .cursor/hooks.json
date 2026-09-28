@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": ".cursor/hooks/go-crap-before-commit.sh",
+        "matcher": "git commit",
+        "timeout": 600,
+        "failClosed": true
+      }
+    ]
+  }
+}
