@@ -17,15 +17,13 @@ input_file=$(mktemp)
 trap 'rm -f "$input_file"' EXIT
 cat > "$input_file"
 
-python3 - "$input_file" <<'PY'
+script=$(CDPATH= cd -- "$(dirname "$0")/../scripts" && pwd)/go-crap-report.py
+python3 - "$input_file" "$script" <<'PY'
 import json
 import os
-import shutil
 import subprocess
 import sys
 
-LIMIT = 6.0
-MAX_OFFENDERS = 30
 MAX_ERROR_CHARS = 4000
 
 GIT_OPTIONS_WITH_VALUE = {
@@ -177,47 +175,6 @@ def scan_roots(payload):
     return [os.getcwd()]
 
 
-def entry_score(entry):
-    effective = entry.get("effective_crap")
-    crap = entry.get("crap")
-    if isinstance(effective, (int, float)) and effective != 0:
-        return float(effective)
-    if isinstance(crap, (int, float)):
-        return float(crap)
-    if isinstance(effective, (int, float)):
-        return float(effective)
-    return None
-
-
-def parse_report(text):
-    start = text.find("{")
-    if start < 0:
-        raise ValueError("go-crap did not return a JSON report")
-    report, _ = json.JSONDecoder().raw_decode(text[start:])
-    if not isinstance(report, dict) or not isinstance(report.get("entries"), list):
-        raise ValueError("go-crap JSON report has no entries list")
-    return report
-
-
-def format_offender(entry, score):
-    location = entry.get("file") or "?"
-    line = entry.get("line")
-    if isinstance(line, int) and line > 0:
-        location = f"{location}:{line}"
-    name = entry.get("function") or "?"
-    receiver = entry.get("receiver")
-    if receiver:
-        name = f"{receiver}.{name}"
-    details = [f"CRAP {score:.2f}"]
-    complexity = entry.get("cyclomatic")
-    if isinstance(complexity, int):
-        details.append(f"complexity {complexity}")
-    coverage = entry.get("coverage")
-    if isinstance(coverage, (int, float)):
-        details.append(f"coverage {coverage:.1f}%")
-    return f"- {location} {name} ({', '.join(details)})"
-
-
 def clip(text):
     text = text.strip()
     if len(text) <= MAX_ERROR_CHARS:
@@ -225,38 +182,51 @@ def clip(text):
     return text[:MAX_ERROR_CHARS] + "\n…"
 
 
-def offenders_message(offenders):
-    shown = offenders[:MAX_OFFENDERS]
-    lines = [format_offender(entry, score) for entry, score in shown]
-    extra = len(offenders) - len(shown)
-    if extra > 0:
-        lines.append(f"- … and {extra} more")
-    noun = "function" if len(offenders) == 1 else "functions"
-    return (
-        "Commit blocked. Every function must have a go-crap CRAP score under 6 "
-        f"(effective score < {LIMIT:.0f}). "
-        f"{len(offenders)} {noun} scored 6 or higher:\n"
-        + "\n".join(lines)
+def load_report(completed):
+    text = completed.stdout or ""
+    start = text.find("{")
+    if start < 0:
+        detail = clip(completed.stderr or text or f"go-crap report exited {completed.returncode}")
+        raise ValueError(detail or f"go-crap report exited {completed.returncode}")
+    report, _ = json.JSONDecoder().raw_decode(text[start:])
+    if not isinstance(report, dict):
+        raise ValueError("go-crap report was not a JSON object")
+    return report
+
+
+def deny_from_report(report):
+    error = report.get("error")
+    if error == "missing_binary":
+        deny(
+            "Commit blocked: go-crap is not available.",
+            "Commit blocked. go-crap and go must both be on PATH before a commit can be created. "
+            "Install go-crap, then rerun the commit. Every function must score under 6.",
+        )
+    if error == "timeout":
+        deny(
+            "Commit blocked: go-crap scan timed out.",
+            "Commit blocked. go-crap scan exceeded 9 minutes, so it could not prove every function scores under 6. Fix the test run and commit again.",
+        )
+    if error:
+        deny(
+            "Commit blocked: go-crap scan failed.",
+            "Commit blocked. go-crap scan failed, so it could not prove every function scores under 6.\n"
+            + clip(str(report.get("detail") or "")),
+        )
+    summary = report.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        deny(
+            "Commit blocked: go-crap scan failed.",
+            "Commit blocked. go-crap scan failed, so it could not prove every function scores under 6.\n"
+            "go-crap report did not include an offender summary.",
+        )
+    deny(
+        "Commit blocked: every function must have a go-crap score under 6.",
+        "Commit blocked. "
+        + summary
         + "\nLower the complexity of those functions or cover them with tests, "
-        "then create the commit again."
+        "then create the commit again.",
     )
-
-
-def scan_root(binary, root):
-    completed = subprocess.run(
-        [binary, "scan", "--format", "json", "--no-progress", "--timeout", "9m"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        timeout=540,
-        check=False,
-    )
-    stdout = completed.stdout or ""
-    stderr = completed.stderr or ""
-    if completed.returncode != 0:
-        detail = clip(stderr or stdout or f"go-crap exited {completed.returncode}")
-        raise RuntimeError(detail)
-    return parse_report(stdout)
 
 
 def main():
@@ -273,43 +243,35 @@ def main():
     if not is_git_commit(command):
         allow()
 
-    binary = shutil.which("go-crap")
-    go_binary = shutil.which("go")
-    if not binary or not go_binary:
-        deny(
-            "Commit blocked: go-crap is not available.",
-            "Commit blocked. go-crap and go must both be on PATH before a commit can be created. "
-            "Install go-crap, then rerun the commit. Every function must score under 6.",
-        )
-
-    found = []
+    script = sys.argv[2]
+    command_args = [sys.executable, script]
+    for root in scan_roots(payload):
+        command_args.extend(["--root", root])
     try:
-        for root in scan_roots(payload):
-            report = scan_root(binary, root)
-            for entry in report["entries"]:
-                score = entry_score(entry)
-                if score is None or score >= LIMIT:
-                    found.append((entry, LIMIT if score is None else score))
+        completed = subprocess.run(
+            command_args,
+            capture_output=True,
+            text=True,
+            timeout=560,
+            check=False,
+        )
+        report = load_report(completed)
     except subprocess.TimeoutExpired:
         deny(
             "Commit blocked: go-crap scan timed out.",
             "Commit blocked. go-crap scan exceeded 9 minutes, so it could not prove every function scores under 6. Fix the test run and commit again.",
         )
-    except (OSError, RuntimeError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         deny(
             "Commit blocked: go-crap scan failed.",
             "Commit blocked. go-crap scan failed, so it could not prove every function scores under 6.\n"
             + clip(str(exc)),
         )
 
-    if found:
-        found.sort(key=lambda item: item[1], reverse=True)
-        deny(
-            "Commit blocked: every function must have a go-crap score under 6.",
-            offenders_message(found),
-        )
+    if completed.returncode == 0 and report.get("ok") is True:
+        allow("go-crap scan passed. Every function scores under 6.")
 
-    allow("go-crap scan passed. Every function scores under 6.")
+    deny_from_report(report)
 
 
 if __name__ == "__main__":

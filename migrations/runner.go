@@ -71,12 +71,52 @@ func appliedVersions(ctx context.Context, db *sql.DB) (map[int]bool, error) {
 	return scanVersions(rows)
 }
 
-func commitMigration(ctx context.Context, tx *sql.Tx, migration Migration) error {
-	if err := migration.Up(ctx, tx); err != nil {
-		return fmt.Errorf("up migration: %w", err)
+func recordMigration(
+	ctx context.Context,
+	tx *sql.Tx,
+	migration Migration,
+) error {
+	sql, args, err := query.
+		Insert("migrations").
+		Columns("version", "name").
+		Values(migration.Version, migration.Name).
+		Build()
+	if err != nil {
+		return fmt.Errorf("build migration record: %w", err)
 	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+	_, err = tx.ExecContext(ctx, sql, args...)
+	if err != nil {
+		return fmt.Errorf("record migration: %w", err)
+	}
+	return nil
+}
+
+func validateMigration(migrations []Migration) error {
+	seen := make(map[int]bool, len(migrations))
+	for i, migration := range migrations {
+		if err := validateMigrationEntry(i, migration); err != nil {
+			return err
+		}
+		if seen[migration.Version] {
+			return fmt.Errorf("migration %d: version %d already exists", i, migration.Version)
+		}
+		seen[migration.Version] = true
+	}
+	return nil
+}
+
+func validateMigrationEntry(i int, migration Migration) error {
+	if migration.Version <= 0 {
+		return fmt.Errorf("migration %d version must be positive", i)
+	}
+	if migration.Name == "" {
+		return fmt.Errorf("migration %d: name is required", i)
+	}
+	if migration.Up == nil {
+		return fmt.Errorf("migration %d: up function is required", i)
+	}
+	if migration.Down == nil {
+		return fmt.Errorf("migration %d: down function is required", i)
 	}
 	return nil
 }
@@ -88,7 +128,17 @@ func runMigration(ctx context.Context, db *sql.DB, migration Migration) error {
 	}
 	defer tx.Rollback()
 
-	return commitMigration(ctx, tx, migration)
+	if err := migration.Up(ctx, tx); err != nil {
+		return fmt.Errorf("up migration: %w", err)
+	}
+	if err := recordMigration(ctx, tx, migration); err != nil {
+		return fmt.Errorf("record migration: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
 }
 
 func applyPending(ctx context.Context, db *sql.DB, migrations []Migration, applied map[int]bool) error {
@@ -109,6 +159,9 @@ func applyPending(ctx context.Context, db *sql.DB, migrations []Migration, appli
 }
 
 func Run(ctx context.Context, db *sql.DB, migrations []Migration) error {
+	if err := validateMigration(migrations); err != nil {
+		return fmt.Errorf("validate migrations: %w", err)
+	}
 	if err := ensureMigrationsTable(ctx, db); err != nil {
 		return fmt.Errorf("ensure migrations table: %w", err)
 	}

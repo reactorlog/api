@@ -1,6 +1,7 @@
 package query
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -22,8 +23,17 @@ const (
 	OrOperator  LogicalOperator = "OR"
 )
 
+type builder struct {
+	args []any
+}
+
+func (b *builder) bind(value any) string {
+	b.args = append(b.args, value)
+	return fmt.Sprintf("$%d", len(b.args))
+}
+
 type Condition interface {
-	build(index int) (string, []any, error)
+	build(*builder) (string, error)
 }
 
 type Comparison struct {
@@ -41,55 +51,55 @@ type Logical struct {
 type ColumnRef string
 
 func Column(name string) ColumnRef {
-    return ColumnRef(name)
+	return ColumnRef(name)
 }
 
 func (c ColumnRef) Equals(value interface{}) Condition {
 	return Comparison{
-			column:   string(c),
-			operator: Equal,
-			value:    value,
-		}
+		column:   string(c),
+		operator: Equal,
+		value:    value,
+	}
 }
 
 func (c ColumnRef) NotEquals(value interface{}) Condition {
 	return Comparison{
-			column:   string(c),
-			operator: NotEqual,
-			value:    value,
-		}
+		column:   string(c),
+		operator: NotEqual,
+		value:    value,
+	}
 }
 
 func (c ColumnRef) GreaterThan(value interface{}) Condition {
 	return Comparison{
-			column:   string(c),
-			operator: GreaterThan,
-			value:    value,
-		}
+		column:   string(c),
+		operator: GreaterThan,
+		value:    value,
+	}
 }
 
 func (c ColumnRef) GreaterThanOrEqual(value interface{}) Condition {
 	return Comparison{
-			column:   string(c),
-			operator: GreaterThanOrEqual,
-			value:    value,
-		}
+		column:   string(c),
+		operator: GreaterThanOrEqual,
+		value:    value,
+	}
 }
 
 func (c ColumnRef) LessThan(value interface{}) Condition {
 	return Comparison{
-			column:   string(c),
-			operator: LessThan,
-			value:    value,
-		}
+		column:   string(c),
+		operator: LessThan,
+		value:    value,
+	}
 }
 
 func (c ColumnRef) LessThanOrEqual(value interface{}) Condition {
 	return Comparison{
 		column:   string(c),
 		operator: LessThanOrEqual,
-		value:    value,	
-		}
+		value:    value,
+	}
 }
 
 func And(left, right Condition) Condition {
@@ -97,7 +107,7 @@ func And(left, right Condition) Condition {
 		left:     left,
 		operator: AndOperator,
 		right:    right,
-		}
+	}
 }
 
 func Or(left, right Condition) Condition {
@@ -105,27 +115,33 @@ func Or(left, right Condition) Condition {
 		left:     left,
 		operator: OrOperator,
 		right:    right,
-		}
+	}
 }
 
-func (c Comparison) build(index int) (string, []any, error) {
+func (c Comparison) build(b *builder) (string, error) {
+	if c.column == "" {
+		return "", errors.New("comparison column is required")
+	}
+
+	placeholder := b.bind(c.value)
+
 	sql := fmt.Sprintf(
-		"%s %s $%d",
+		"%s %s %s",
 		c.column,
 		c.operator,
-		index,
+		placeholder,
 	)
-	return sql, []any{c.value}, nil
+	return sql, nil
 }
 
-func (l Logical) build(index int) (string, []any, error) {
-	leftSQL, leftArgs, err := l.left.build(index)
+func (l Logical) build(b *builder) (string, error) {
+	leftSQL, err := l.left.build(b)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
-	rightSQL, rightArgs, err := l.right.build(index + len(leftArgs))
+	rightSQL, err := l.right.build(b)
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 	sql := fmt.Sprintf(
 		"(%s %s %s)",
@@ -133,5 +149,5 @@ func (l Logical) build(index int) (string, []any, error) {
 		l.operator,
 		rightSQL,
 	)
-	return sql, append(leftArgs, rightArgs...), nil
+	return sql, nil
 }

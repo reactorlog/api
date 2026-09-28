@@ -44,14 +44,20 @@ func (q SelectQuery) Build() (string, []any, error) {
 		return "", nil, err
 	}
 
-	sql := fmt.Sprintf("SELECT %s FROM %s", strings.Join(q.columns, ", "), q.table)
-	if q.where == nil {
-		return sql, nil, nil
+	b := &builder{}
+
+	sql := fmt.Sprintf(
+		"SELECT %s FROM %s",
+		strings.Join(q.columns, ", "),
+		q.table,
+	)
+	if q.where != nil {
+		where, err := q.where.build(b)
+		if err != nil {
+			return "", nil, err
+		}
+		sql += " WHERE " + where
 	}
 
-	where, args, err := q.where.build(1)
-	if err != nil {
-		return "", nil, err
-	}
-	return fmt.Sprintf("%s WHERE %s", sql, where), args, nil
+	return sql, b.args, nil
 }
