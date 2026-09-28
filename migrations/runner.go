@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"github.com/reactorlog/api/internal/database/query"
 	"github.com/reactorlog/api/internal/database/schema"
@@ -11,6 +12,7 @@ import (
 
 var migrationsSchema = schema.Table{
 	Name: "migrations",
+	IfNotExists: true,
 	Columns: []schema.Column{
 		schema.UUID("id").PrimaryKey().DefaultUUIDV7(),
 		schema.Int("version").NotNull().Unique(),
@@ -146,6 +148,12 @@ func applyPending(ctx context.Context, db *sql.DB, migrations []Migration, appli
 		if applied[migration.Version] {
 			continue
 		}
+		startedAt := time.Now()
+		slog.Info(
+			"applying migration",
+			"version", migration.Version,
+			"name", migration.Name,
+		)
 		if err := runMigration(ctx, db, migration); err != nil {
 			return fmt.Errorf(
 				"run migration %d %q: %w",
@@ -154,6 +162,13 @@ func applyPending(ctx context.Context, db *sql.DB, migrations []Migration, appli
 				err,
 			)
 		}
+
+		slog.Info(
+			"migration applied",
+			"version", migration.Version,
+			"name", migration.Name,
+			"duration", time.Since(startedAt),
+		)
 	}
 	return nil
 }

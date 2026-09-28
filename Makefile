@@ -2,19 +2,27 @@ run:
 	@set -a; \
 	. ./.env; \
 	set +a; \
-	go run ./cmd/server
+	go run ./cmd/reactorlog server
 
-migrate-up:
+migrate:
 	@set -a; \
 	. ./.env; \
 	set +a; \
-	migrate -path ./migrations -database $$DATABASE_URL up
-
-migrate-down:
-	@set -a; \
-	. ./.env; \
-	set +a; \
-	migrate -path ./migrations -database $$DATABASE_URL down 1
+	go run ./cmd/reactorlog migrate
 
 db:
 	docker compose exec postgres psql -U reactorlog -d reactorlog
+
+test:
+	@set -a; \
+	. ./.env; \
+	set +a; \
+	go test -count=1 ./...
+
+test-db:
+	@docker compose exec -T postgres \
+		psql -U reactorlog -d postgres -tAc \
+		"SELECT 1 FROM pg_database WHERE datname = 'reactorlog_test'" \
+		| grep -q 1 || \
+	docker compose exec -T postgres \
+		createdb -U reactorlog reactorlog_test
