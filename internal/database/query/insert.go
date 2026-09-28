@@ -1,9 +1,9 @@
 package query
 
 type InsertQuery struct {
-	table string
+	table   string
 	columns []string
-	values []any
+	values  []any
 }
 
 func Insert(table string) InsertQuery {

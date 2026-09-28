@@ -2,7 +2,7 @@ package query
 
 type DeleteQuery struct {
 	table string
-	where *Condition
+	where Condition
 }
 
 func Delete(table string) DeleteQuery {

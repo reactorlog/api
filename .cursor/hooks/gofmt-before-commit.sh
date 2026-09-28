@@ -1,15 +1,15 @@
 #!/bin/bash
-# Gate every agent's git commit on a go-crap scan.
-# A commit is allowed only when every function scores strictly under 6.
+# Gate every agent's git commit on gofmt cleanliness.
+# A commit is allowed only when gofmt -l finds no .go files to rewrite.
 
 set -u
 
-if ! command -v go-crap >/dev/null 2>&1 || ! command -v go >/dev/null 2>&1; then
-  export PATH="${HOME}/.local/bin:/opt/homebrew/bin:/usr/local/bin:${PATH:-/usr/bin:/bin}"
+if ! command -v gofmt >/dev/null 2>&1 || ! command -v go >/dev/null 2>&1; then
+  export PATH="/opt/homebrew/bin:/usr/local/bin:${PATH:-/usr/bin:/bin}"
 fi
 
 if ! command -v python3 >/dev/null 2>&1; then
-  printf '%s\n' '{"permission":"deny","user_message":"Commit blocked: python3 is required to run the go-crap score gate.","agent_message":"Commit blocked. python3 is not on PATH, so the go-crap gate could not verify that every function scores under 6."}'
+  printf '%s\n' '{"permission":"deny","user_message":"Commit blocked: python3 is required to run the gofmt gate.","agent_message":"Commit blocked. python3 is not on PATH, so the gofmt gate could not verify that every .go file is gofmt-clean."}'
   exit 0
 fi
 
@@ -24,7 +24,6 @@ import shutil
 import subprocess
 import sys
 
-LIMIT = 6.0
 MAX_OFFENDERS = 30
 MAX_ERROR_CHARS = 4000
 
@@ -159,7 +158,6 @@ def shlex_split(part):
 
 
 def unparsed_looks_like_commit(part):
-    # Fail closed only when an unquoted git commit invocation is visible.
     import re
     return re.search(
         r"(?:^|[;&|\n]|&&|\|\|)\s*(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*git\s+commit(?:\s|$)",
@@ -177,47 +175,6 @@ def scan_roots(payload):
     return [os.getcwd()]
 
 
-def entry_score(entry):
-    effective = entry.get("effective_crap")
-    crap = entry.get("crap")
-    if isinstance(effective, (int, float)) and effective != 0:
-        return float(effective)
-    if isinstance(crap, (int, float)):
-        return float(crap)
-    if isinstance(effective, (int, float)):
-        return float(effective)
-    return None
-
-
-def parse_report(text):
-    start = text.find("{")
-    if start < 0:
-        raise ValueError("go-crap did not return a JSON report")
-    report, _ = json.JSONDecoder().raw_decode(text[start:])
-    if not isinstance(report, dict) or not isinstance(report.get("entries"), list):
-        raise ValueError("go-crap JSON report has no entries list")
-    return report
-
-
-def format_offender(entry, score):
-    location = entry.get("file") or "?"
-    line = entry.get("line")
-    if isinstance(line, int) and line > 0:
-        location = f"{location}:{line}"
-    name = entry.get("function") or "?"
-    receiver = entry.get("receiver")
-    if receiver:
-        name = f"{receiver}.{name}"
-    details = [f"CRAP {score:.2f}"]
-    complexity = entry.get("cyclomatic")
-    if isinstance(complexity, int):
-        details.append(f"complexity {complexity}")
-    coverage = entry.get("coverage")
-    if isinstance(coverage, (int, float)):
-        details.append(f"coverage {coverage:.1f}%")
-    return f"- {location} {name} ({', '.join(details)})"
-
-
 def clip(text):
     text = text.strip()
     if len(text) <= MAX_ERROR_CHARS:
@@ -225,38 +182,34 @@ def clip(text):
     return text[:MAX_ERROR_CHARS] + "\n…"
 
 
-def offenders_message(offenders):
-    shown = offenders[:MAX_OFFENDERS]
-    lines = [format_offender(entry, score) for entry, score in shown]
-    extra = len(offenders) - len(shown)
-    if extra > 0:
-        lines.append(f"- … and {extra} more")
-    noun = "function" if len(offenders) == 1 else "functions"
-    return (
-        "Commit blocked. Every function must have a go-crap CRAP score under 6 "
-        f"(effective score < {LIMIT:.0f}). "
-        f"{len(offenders)} {noun} scored 6 or higher:\n"
-        + "\n".join(lines)
-        + "\nLower the complexity of those functions or cover them with tests, "
-        "then create the commit again."
-    )
-
-
-def scan_root(binary, root):
+def list_dirty(gofmt, root):
     completed = subprocess.run(
-        [binary, "scan", "--format", "json", "--no-progress", "--timeout", "9m"],
+        [gofmt, "-l", "."],
         cwd=root,
         capture_output=True,
         text=True,
-        timeout=540,
         check=False,
     )
-    stdout = completed.stdout or ""
-    stderr = completed.stderr or ""
     if completed.returncode != 0:
-        detail = clip(stderr or stdout or f"go-crap exited {completed.returncode}")
+        detail = clip(completed.stderr or completed.stdout or f"gofmt exited {completed.returncode}")
         raise RuntimeError(detail)
-    return parse_report(stdout)
+    return [line for line in completed.stdout.splitlines() if line.strip()]
+
+
+def offenders_message(paths):
+    shown = paths[:MAX_OFFENDERS]
+    lines = [f"- {path}" for path in shown]
+    extra = len(paths) - len(shown)
+    if extra > 0:
+        lines.append(f"- … and {extra} more")
+    noun = "file" if len(paths) == 1 else "files"
+    return (
+        "Commit blocked. Every .go file must be gofmt-clean. "
+        f"{len(paths)} {noun} would be rewritten by gofmt:\n"
+        + "\n".join(lines)
+        + "\nRun gofmt -w on those files (or let the afterFileEdit hook format them), "
+        "then create the commit again."
+    )
 
 
 def main():
@@ -265,51 +218,48 @@ def main():
         payload = json.loads(raw) if raw.strip() else {}
     except json.JSONDecodeError:
         deny(
-            "Commit blocked: the go-crap hook could not read its input.",
-            "Commit blocked. The go-crap hook received invalid JSON, so it could not verify that every function scores under 6.",
+            "Commit blocked: the gofmt hook could not read its input.",
+            "Commit blocked. The gofmt hook received invalid JSON, so it could not verify that every .go file is gofmt-clean.",
         )
 
     command = payload.get("command", "")
     if not is_git_commit(command):
         allow()
 
-    binary = shutil.which("go-crap")
-    go_binary = shutil.which("go")
-    if not binary or not go_binary:
+    gofmt = shutil.which("gofmt")
+    if not gofmt:
         deny(
-            "Commit blocked: go-crap is not available.",
-            "Commit blocked. go-crap and go must both be on PATH before a commit can be created. "
-            "Install go-crap, then rerun the commit. Every function must score under 6.",
+            "Commit blocked: gofmt is not available.",
+            "Commit blocked. gofmt must be on PATH before a commit can be created. "
+            "Install Go (gofmt ships with it), then rerun the commit.",
         )
 
-    found = []
+    dirty = []
     try:
         for root in scan_roots(payload):
-            report = scan_root(binary, root)
-            for entry in report["entries"]:
-                score = entry_score(entry)
-                if score is None or score >= LIMIT:
-                    found.append((entry, LIMIT if score is None else score))
-    except subprocess.TimeoutExpired:
+            dirty.extend(list_dirty(gofmt, root))
+    except (OSError, RuntimeError) as exc:
         deny(
-            "Commit blocked: go-crap scan timed out.",
-            "Commit blocked. go-crap scan exceeded 9 minutes, so it could not prove every function scores under 6. Fix the test run and commit again.",
-        )
-    except (OSError, RuntimeError, ValueError) as exc:
-        deny(
-            "Commit blocked: go-crap scan failed.",
-            "Commit blocked. go-crap scan failed, so it could not prove every function scores under 6.\n"
+            "Commit blocked: gofmt check failed.",
+            "Commit blocked. gofmt check failed, so it could not prove every .go file is gofmt-clean.\n"
             + clip(str(exc)),
         )
 
-    if found:
-        found.sort(key=lambda item: item[1], reverse=True)
+    # De-dupe while preserving order.
+    seen = set()
+    unique = []
+    for path in dirty:
+        if path not in seen:
+            seen.add(path)
+            unique.append(path)
+
+    if unique:
         deny(
-            "Commit blocked: every function must have a go-crap score under 6.",
-            offenders_message(found),
+            "Commit blocked: Go files are not gofmt-clean.",
+            offenders_message(unique),
         )
 
-    allow("go-crap scan passed. Every function scores under 6.")
+    allow("gofmt check passed. Every .go file is gofmt-clean.")
 
 
 if __name__ == "__main__":

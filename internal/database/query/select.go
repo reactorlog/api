@@ -9,7 +9,7 @@ import (
 type SelectQuery struct {
 	columns []string
 	table   string
-	where   *Condition
+	where   Condition
 }
 
 func Select(columns ...string) SelectQuery {
@@ -24,7 +24,7 @@ func (q SelectQuery) From(table string) SelectQuery {
 }
 
 func (q SelectQuery) Where(condition Condition) SelectQuery {
-	q.where = &condition
+	q.where = condition
 	return q
 }
 
@@ -49,7 +49,7 @@ func (q SelectQuery) Build() (string, []any, error) {
 		return sql, nil, nil
 	}
 
-	where, args, err := buildCondition(*q.where, 1)
+	where, args, err := q.where.build(1)
 	if err != nil {
 		return "", nil, err
 	}

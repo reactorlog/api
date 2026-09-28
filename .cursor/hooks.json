@@ -1,11 +1,22 @@
 {
   "version": 1,
   "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/gofmt-after-edit.sh"
+      }
+    ],
     "beforeShellExecution": [
       {
         "command": ".cursor/hooks/go-crap-before-commit.sh",
         "matcher": "git commit",
         "timeout": 600,
+        "failClosed": true
+      },
+      {
+        "command": ".cursor/hooks/gofmt-before-commit.sh",
+        "matcher": "git commit",
+        "timeout": 60,
         "failClosed": true
       }
     ]

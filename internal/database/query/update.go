@@ -8,7 +8,7 @@ type Assignment struct {
 type UpdateQuery struct {
 	table string
 	set   []Assignment
-	where *Condition
+	where Condition
 }
 
 func Update(table string) UpdateQuery {

@@ -1,7 +1,6 @@
 package query
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -19,13 +18,12 @@ const (
 type LogicalOperator string
 
 const (
-	And LogicalOperator = "AND"
-	Or  LogicalOperator = "OR"
+	AndOperator LogicalOperator = "AND"
+	OrOperator  LogicalOperator = "OR"
 )
 
-type Condition struct {
-	comparison *Comparison
-	logical    *Logical
+type Condition interface {
+	build(index int) (string, []any, error)
 }
 
 type Comparison struct {
@@ -40,111 +38,100 @@ type Logical struct {
 	right    Condition
 }
 
-type ConditionBuilder struct {
-	column string
+type ColumnRef string
+
+func Column(name string) ColumnRef {
+    return ColumnRef(name)
 }
 
-func Column(name string) ConditionBuilder {
-	return ConditionBuilder{
-		column: name,
-	}
-}
-
-func (b ConditionBuilder) Equals(value interface{}) Condition {
-	return b.comparison(Equal, value)
-}
-
-func (b ConditionBuilder) NotEquals(value interface{}) Condition {
-	return b.comparison(NotEqual, value)
-}
-
-func (b ConditionBuilder) GreaterThan(value interface{}) Condition {
-	return b.comparison(GreaterThan, value)
-}
-
-func (b ConditionBuilder) GreaterThanOrEqual(value interface{}) Condition {
-	return b.comparison(GreaterThanOrEqual, value)
-}
-
-func (b ConditionBuilder) LessThan(value interface{}) Condition {
-	return b.comparison(LessThan, value)
-}
-
-func (b ConditionBuilder) LessThanOrEqual(value interface{}) Condition {
-	return b.comparison(LessThanOrEqual, value)
-}
-
-func (b ConditionBuilder) comparison(operator Operator, value interface{}) Condition {
-	return Condition{
-		comparison: &Comparison{
-			column:   b.column,
-			operator: operator,
+func (c ColumnRef) Equals(value interface{}) Condition {
+	return Comparison{
+			column:   string(c),
+			operator: Equal,
 			value:    value,
-		},
-	}
+		}
 }
 
-func (c Condition) And(right Condition) Condition {
-	return c.combine(And, right)
+func (c ColumnRef) NotEquals(value interface{}) Condition {
+	return Comparison{
+			column:   string(c),
+			operator: NotEqual,
+			value:    value,
+		}
 }
 
-func (c Condition) Or(right Condition) Condition {
-	return c.combine(Or, right)
+func (c ColumnRef) GreaterThan(value interface{}) Condition {
+	return Comparison{
+			column:   string(c),
+			operator: GreaterThan,
+			value:    value,
+		}
 }
 
-func (c Condition) combine(operator LogicalOperator, right Condition) Condition {
-	return Condition{
-		logical: &Logical{
-			left:     c,
-			operator: operator,
-			right:    right,
-		},
-	}
+func (c ColumnRef) GreaterThanOrEqual(value interface{}) Condition {
+	return Comparison{
+			column:   string(c),
+			operator: GreaterThanOrEqual,
+			value:    value,
+		}
 }
 
-func buildComparison(comparison Comparison, index int) (string, []any) {
+func (c ColumnRef) LessThan(value interface{}) Condition {
+	return Comparison{
+			column:   string(c),
+			operator: LessThan,
+			value:    value,
+		}
+}
+
+func (c ColumnRef) LessThanOrEqual(value interface{}) Condition {
+	return Comparison{
+		column:   string(c),
+		operator: LessThanOrEqual,
+		value:    value,	
+		}
+}
+
+func And(left, right Condition) Condition {
+	return Logical{
+		left:     left,
+		operator: AndOperator,
+		right:    right,
+		}
+}
+
+func Or(left, right Condition) Condition {
+	return Logical{
+		left:     left,
+		operator: OrOperator,
+		right:    right,
+		}
+}
+
+func (c Comparison) build(index int) (string, []any, error) {
 	sql := fmt.Sprintf(
 		"%s %s $%d",
-		comparison.column,
-		comparison.operator,
+		c.column,
+		c.operator,
 		index,
 	)
-	return sql, []any{comparison.value}
+	return sql, []any{c.value}, nil
 }
 
-func buildLogical(logical Logical, index int) (string, []any, error) {
-	leftSQL, leftArgs, err := buildCondition(logical.left, index)
+func (l Logical) build(index int) (string, []any, error) {
+	leftSQL, leftArgs, err := l.left.build(index)
 	if err != nil {
 		return "", nil, err
 	}
-
-	rightSQL, rightArgs, err := buildCondition(logical.right, index+len(leftArgs))
+	rightSQL, rightArgs, err := l.right.build(index + len(leftArgs))
 	if err != nil {
 		return "", nil, err
 	}
-
 	sql := fmt.Sprintf(
 		"(%s %s %s)",
 		leftSQL,
-		logical.operator,
+		l.operator,
 		rightSQL,
 	)
 	return sql, append(leftArgs, rightArgs...), nil
-}
-
-func buildCondition(condition Condition, index int) (string, []any, error) {
-	hasComparison := condition.comparison != nil
-	hasLogical := condition.logical != nil
-
-	if hasComparison && hasLogical {
-		return "", nil, errors.New("condition type cannot be both comparison and logical")
-	}
-	if hasComparison {
-		sql, args := buildComparison(*condition.comparison, index)
-		return sql, args, nil
-	}
-	if hasLogical {
-		return buildLogical(*condition.logical, index)
-	}
-	return "", nil, errors.New("condition is empty")
 }
