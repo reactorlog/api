@@ -6,22 +6,22 @@ import (
 	"fmt"
 )
 
-type Operator string
+type operator string
 
 const (
-	Equal              Operator = "="
-	NotEqual           Operator = "!="
-	GreaterThan        Operator = ">"
-	GreaterThanOrEqual Operator = ">="
-	LessThan           Operator = "<"
-	LessThanOrEqual    Operator = "<="
+	equal              operator = "="
+	notEqual           operator = "!="
+	greaterThan        operator = ">"
+	greaterThanOrEqual operator = ">="
+	lessThan           operator = "<"
+	lessThanOrEqual    operator = "<="
 )
 
-type LogicalOperator string
+type logicalOperator string
 
 const (
-	AndOperator LogicalOperator = "AND"
-	OrOperator  LogicalOperator = "OR"
+	andOperator logicalOperator = "AND"
+	orOperator  logicalOperator = "OR"
 )
 
 // ValueFormatter renders a value as a query placeholder or a SQL literal.
@@ -31,15 +31,15 @@ type Condition interface {
 	build(ValueFormatter) (string, error)
 }
 
-type Comparison struct {
+type comparison struct {
 	column   string
-	operator Operator
+	operator operator
 	value    any
 }
 
-type Logical struct {
+type logical struct {
 	left     Condition
-	operator LogicalOperator
+	operator logicalOperator
 	right    Condition
 }
 
@@ -50,35 +50,35 @@ func Column(name string) ColumnRef {
 }
 
 func (c ColumnRef) Equals(value any) Condition {
-	return Comparison{column: string(c), operator: Equal, value: value}
+	return comparison{column: string(c), operator: equal, value: value}
 }
 
 func (c ColumnRef) NotEquals(value any) Condition {
-	return Comparison{column: string(c), operator: NotEqual, value: value}
+	return comparison{column: string(c), operator: notEqual, value: value}
 }
 
 func (c ColumnRef) GreaterThan(value any) Condition {
-	return Comparison{column: string(c), operator: GreaterThan, value: value}
+	return comparison{column: string(c), operator: greaterThan, value: value}
 }
 
 func (c ColumnRef) GreaterThanOrEqual(value any) Condition {
-	return Comparison{column: string(c), operator: GreaterThanOrEqual, value: value}
+	return comparison{column: string(c), operator: greaterThanOrEqual, value: value}
 }
 
 func (c ColumnRef) LessThan(value any) Condition {
-	return Comparison{column: string(c), operator: LessThan, value: value}
+	return comparison{column: string(c), operator: lessThan, value: value}
 }
 
 func (c ColumnRef) LessThanOrEqual(value any) Condition {
-	return Comparison{column: string(c), operator: LessThanOrEqual, value: value}
+	return comparison{column: string(c), operator: lessThanOrEqual, value: value}
 }
 
 func And(left, right Condition) Condition {
-	return Logical{left: left, operator: AndOperator, right: right}
+	return logical{left: left, operator: andOperator, right: right}
 }
 
 func Or(left, right Condition) Condition {
-	return Logical{left: left, operator: OrOperator, right: right}
+	return logical{left: left, operator: orOperator, right: right}
 }
 
 // Build renders a condition using the caller's value formatter.
@@ -92,21 +92,9 @@ func Build(condition Condition, formatValue ValueFormatter) (string, error) {
 	return condition.build(formatValue)
 }
 
-func validateComparisonOperator(operator Operator) error {
-	switch operator {
-	case Equal, NotEqual, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual:
-		return nil
-	default:
-		return errors.New("invalid comparison operator")
-	}
-}
-
-func (c Comparison) build(formatValue ValueFormatter) (string, error) {
+func (c comparison) build(formatValue ValueFormatter) (string, error) {
 	if c.column == "" {
 		return "", errors.New("comparison column is required")
-	}
-	if err := validateComparisonOperator(c.operator); err != nil {
-		return "", err
 	}
 	value, err := formatValue(c.value)
 	if err != nil {
@@ -115,19 +103,7 @@ func (c Comparison) build(formatValue ValueFormatter) (string, error) {
 	return fmt.Sprintf("%s %s %s", c.column, c.operator, value), nil
 }
 
-func validateLogicalOperator(operator LogicalOperator) error {
-	switch operator {
-	case AndOperator, OrOperator:
-		return nil
-	default:
-		return errors.New("invalid logical operator")
-	}
-}
-
-func (l Logical) build(formatValue ValueFormatter) (string, error) {
-	if err := validateLogicalOperator(l.operator); err != nil {
-		return "", err
-	}
+func (l logical) build(formatValue ValueFormatter) (string, error) {
 	leftSQL, err := Build(l.left, formatValue)
 	if err != nil {
 		return "", err

@@ -1,8 +1,10 @@
 package query
 
+import "github.com/reactorlog/api/internal/database/expr"
+
 type DeleteQuery struct {
 	table string
-	where Condition
+	where expr.Condition
 }
 
 func Delete(table string) DeleteQuery {

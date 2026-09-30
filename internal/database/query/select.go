@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/reactorlog/api/internal/database/expr"
 )
 
 type SelectQuery struct {
 	columns []string
 	table   string
-	where   Condition
+	where   expr.Condition
 }
 
 func Select(columns ...string) SelectQuery {
@@ -23,7 +25,7 @@ func (q SelectQuery) From(table string) SelectQuery {
 	return q
 }
 
-func (q SelectQuery) Where(condition Condition) SelectQuery {
+func (q SelectQuery) Where(condition expr.Condition) SelectQuery {
 	q.where = condition
 	return q
 }

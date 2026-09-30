@@ -1,6 +1,10 @@
 package query
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/reactorlog/api/internal/database/expr"
+)
 
 func TestSelectBuild(t *testing.T) {
 	t.Run("columns are required", func(t *testing.T) {
@@ -31,7 +35,7 @@ func TestSelectBuild(t *testing.T) {
 	})
 
 	t.Run("with where", func(t *testing.T) {
-		sql, args, err := Select("id").From("sites").Where(Column("name").Equals("Ada")).Build()
+		sql, args, err := Select("id").From("sites").Where(expr.Column("name").Equals("Ada")).Build()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -44,7 +48,7 @@ func TestSelectBuild(t *testing.T) {
 	})
 
 	t.Run("where build error", func(t *testing.T) {
-		_, _, err := Select("id").From("sites").Where(Column("").Equals(1)).Build()
+		_, _, err := Select("id").From("sites").Where(expr.Column("").Equals(1)).Build()
 		if err == nil || err.Error() != "comparison column is required" {
 			t.Fatalf("error = %v", err)
 		}

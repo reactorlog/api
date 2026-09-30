@@ -19,6 +19,6 @@ func (b *builder) formatValue(value any) (string, error) {
 	return b.bind(value), nil
 }
 
-func (b *builder) buildCondition(condition Condition) (string, error) {
+func (b *builder) buildCondition(condition expr.Condition) (string, error) {
 	return expr.Build(condition, b.formatValue)
 }

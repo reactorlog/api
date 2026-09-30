@@ -1,5 +1,7 @@
 package query
 
+import "github.com/reactorlog/api/internal/database/expr"
+
 type Assignment struct {
 	column string
 	value  any
@@ -8,7 +10,7 @@ type Assignment struct {
 type UpdateQuery struct {
 	table string
 	set   []Assignment
-	where Condition
+	where expr.Condition
 }
 
 func Update(table string) UpdateQuery {

@@ -62,16 +62,13 @@ func TestComparisonContinuesPlaceholderNumbering(t *testing.T) {
 	}
 }
 
-func TestComparisonValidation(t *testing.T) {
+func TestComparisonRequiresColumn(t *testing.T) {
 	cases := []struct {
 		name string
 		cond Condition
 		err  string
 	}{
 		{"empty column", Column("").Equals(1), "comparison column is required"},
-		{"zero value", Comparison{}, "comparison column is required"},
-		{"empty operator", Comparison{column: "id"}, "invalid comparison operator"},
-		{"unsupported operator", Comparison{column: "id", operator: "LIKE"}, "invalid comparison operator"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -200,7 +197,7 @@ func TestLogicalRightErrorDiscardsSQL(t *testing.T) {
 	}
 }
 
-func TestLogicalValidation(t *testing.T) {
+func TestLogicalRequiresBothConditions(t *testing.T) {
 	cases := []struct {
 		name string
 		cond Condition
@@ -208,8 +205,6 @@ func TestLogicalValidation(t *testing.T) {
 	}{
 		{"nil left", And(nil, Column("id").Equals(1)), "condition is required"},
 		{"nil right", Or(Column("id").Equals(1), nil), "condition is required"},
-		{"zero value", Logical{}, "invalid logical operator"},
-		{"unsupported operator", Logical{operator: "XOR"}, "invalid logical operator"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
