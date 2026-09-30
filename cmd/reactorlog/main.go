@@ -9,15 +9,20 @@ import (
 )
 
 func main() {
+	os.Exit(exitCode(context.Background(), os.Args[1:]))
+}
+
+func exitCode(ctx context.Context, args []string) int {
 	if err := godotenv.Load(); err != nil {
 		fmt.Fprintln(os.Stderr, fmt.Errorf("load .env: %w", err))
-		os.Exit(1)
+		return 1
 	}
 
-	if err := run(context.Background(), os.Args[1:]); err != nil {
+	if err := run(ctx, args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 func run(ctx context.Context, args []string) error {

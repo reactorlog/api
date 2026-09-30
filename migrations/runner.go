@@ -5,13 +5,14 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/reactorlog/api/internal/database/query"
 	"github.com/reactorlog/api/internal/database/schema"
 )
 
 var migrationsSchema = schema.Table{
-	Name: "migrations",
+	Name:        "migrations",
 	IfNotExists: true,
 	Columns: []schema.Column{
 		schema.UUID("id").PrimaryKey().DefaultUUIDV7(),
@@ -93,7 +94,7 @@ func recordMigration(
 	return nil
 }
 
-func validateMigration(migrations []Migration) error {
+func validateMigrations(migrations []Migration) error {
 	seen := make(map[int]bool, len(migrations))
 	for i, migration := range migrations {
 		if err := validateMigrationEntry(i, migration); err != nil {
@@ -143,9 +144,15 @@ func runMigration(ctx context.Context, db *sql.DB, migration Migration) error {
 	return nil
 }
 
-func applyPending(ctx context.Context, db *sql.DB, migrations []Migration, applied map[int]bool) error {
+func applyPending(ctx context.Context, db *sql.DB, migrations []Migration, applied map[int]bool) ([]Result, error) {
+	results := make([]Result, 0, len(migrations))
 	for _, migration := range migrations {
 		if applied[migration.Version] {
+			results = append(results, Result{
+				Version: migration.Version,
+				Name:    migration.Name,
+				Applied: false,
+			})
 			continue
 		}
 		startedAt := time.Now()
@@ -155,35 +162,51 @@ func applyPending(ctx context.Context, db *sql.DB, migrations []Migration, appli
 			"name", migration.Name,
 		)
 		if err := runMigration(ctx, db, migration); err != nil {
-			return fmt.Errorf(
-				"run migration %d %q: %w",
+			slog.Error(
+				"apply pending migration",
+				"version", migration.Version,
+				"name", migration.Name,
+				"duration", time.Since(startedAt),
+				"error", err,
+			)
+			return nil, fmt.Errorf(
+				"apply pending migration %d %q: %w",
 				migration.Version,
 				migration.Name,
 				err,
 			)
 		}
 
+		duration := time.Since(startedAt)
+
 		slog.Info(
 			"migration applied",
 			"version", migration.Version,
 			"name", migration.Name,
-			"duration", time.Since(startedAt),
+			"duration", duration,
 		)
+
+		results = append(results, Result{
+			Version:  migration.Version,
+			Name:     migration.Name,
+			Applied:  true,
+			Duration: duration,
+		})
 	}
-	return nil
+	return results, nil
 }
 
-func Run(ctx context.Context, db *sql.DB, migrations []Migration) error {
-	if err := validateMigration(migrations); err != nil {
-		return fmt.Errorf("validate migrations: %w", err)
+func Run(ctx context.Context, db *sql.DB, migrations []Migration) ([]Result, error) {
+	if err := validateMigrations(migrations); err != nil {
+		return nil, fmt.Errorf("validate migrations: %w", err)
 	}
 	if err := ensureMigrationsTable(ctx, db); err != nil {
-		return fmt.Errorf("ensure migrations table: %w", err)
+		return nil, fmt.Errorf("ensure migrations table: %w", err)
 	}
 
 	applied, err := appliedVersions(ctx, db)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	return applyPending(ctx, db, migrations, applied)

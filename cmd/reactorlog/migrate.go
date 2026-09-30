@@ -6,11 +6,52 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"log/slog"
+	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/reactorlog/api/migrations"
 )
+
+const (
+	green = "\033[32m"
+	dim   = "\033[2m"
+	reset = "\033[0m"
+)
+
+func printMigrationResults(results []migrations.Result, duration time.Duration) {
+	fmt.Println("migrations")
+	fmt.Println()
+
+	for _, result := range results {
+		if !result.Applied {
+			fmt.Printf(
+				"  %s- %03d  %-24s already applied%s\n",
+				dim,
+				result.Version,
+				result.Name,
+				reset,
+			)
+			continue
+		}
+
+		fmt.Printf(
+			"  %s✓%s %03d  %-24s %s\n",
+			green,
+			reset,
+			result.Version,
+			result.Name,
+			result.Duration.Round(100*time.Microsecond),
+		)
+	}
+
+	fmt.Println()
+	fmt.Printf(
+		"%s✓ complete%s  %s\n",
+		green,
+		reset,
+		duration.Round(100*time.Microsecond),
+	)
+}
 
 func runMigrations(ctx context.Context) error {
 	startedAt := time.Now()
@@ -26,17 +67,11 @@ func runMigrations(ctx context.Context) error {
 	}
 	defer db.Close()
 
-	slog.Info("running migrations")
-
-	if err := migrations.Run(ctx, db, migrations.All); err != nil {
+	results, err := migrations.Run(ctx, db, migrations.All)
+	if err != nil {
 		return fmt.Errorf("run migrations: %w", err)
 	}
 
-	slog.Info(
-		"migrations complete", 
-		"duration", 
-		time.Since(startedAt),
-	)
-
+	printMigrationResults(results, time.Since(startedAt))
 	return nil
 }

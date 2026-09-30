@@ -15,8 +15,17 @@ func TestRunFreshDatabase(t *testing.T) {
 
 	resetTestDatabase(t, ctx, db)
 
-	if err := Run(ctx, db, All); err != nil {
+	results, err := Run(ctx, db, All)
+	if err != nil {
 		t.Fatalf("run migrations: %v", err)
+	}
+	if len(results) != len(All) {
+		t.Fatalf("results = %d, want %d", len(results), len(All))
+	}
+	for _, result := range results {
+		if !result.Applied {
+			t.Fatalf("result %+v not applied on a fresh database", result)
+		}
 	}
 
 	assertTableExists(t, ctx, db, "migrations")

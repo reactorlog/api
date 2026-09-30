@@ -3,7 +3,15 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"time"
 )
+
+type Result struct {
+	Version  int
+	Name     string
+	Applied  bool
+	Duration time.Duration
+}
 
 type Migration struct {
 	Version int
@@ -14,4 +22,5 @@ type Migration struct {
 
 var All = []Migration{
 	createSitesMigration,
+	createReactorsMigration,
 }

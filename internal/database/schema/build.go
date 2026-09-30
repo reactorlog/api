@@ -13,6 +13,19 @@ func validateColumn(c Column) error {
 	if c.columnType == "" {
 		return errors.New("column type is required")
 	}
+	return validateReference(c.reference)
+}
+
+func validateReference(reference *Reference) error {
+	if reference == nil {
+		return nil
+	}
+	if reference.table == "" {
+		return errors.New("reference table is required")
+	}
+	if reference.column == "" {
+		return errors.New("reference column is required")
+	}
 	return nil
 }
 
@@ -37,6 +50,9 @@ func columnModifiers(c Column) []string {
 	}
 	if c.defaultType != "" {
 		parts = append(parts, "DEFAULT "+string(c.defaultType))
+	}
+	if c.reference != nil {
+		parts = append(parts, fmt.Sprintf("REFERENCES %s(%s)", c.reference.table, c.reference.column))
 	}
 	return parts
 }

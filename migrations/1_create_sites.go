@@ -12,9 +12,20 @@ var sites = schema.Table{
 	Name: "sites",
 	Columns: []schema.Column{
 		schema.UUID("id").PrimaryKey().DefaultUUIDV7(),
+		schema.Text("eia_plant_code"),
 		schema.Text("name").NotNull(),
-		schema.Timestamp("created_at").NotNull().DefaultCurrentTimestamp(),
-		schema.Timestamp("updated_at").NotNull().DefaultCurrentTimestamp(),
+		schema.Text("timezone").NotNull(),
+		schema.Text("latitude"),
+		schema.Text("longitude"),
+		schema.Text("address_line_1"),
+		schema.Text("address_line_2"),
+		schema.Text("city"),
+		schema.Text("state"),
+		schema.Text("zip"),
+		schema.Text("phone"),
+		schema.Text("email"),
+		schema.Timestampz("created_at").NotNull().DefaultCurrentTimestamp(),
+		schema.Timestampz("updated_at").NotNull().DefaultCurrentTimestamp(),
 	},
 }
 

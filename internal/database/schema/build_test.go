@@ -179,6 +179,31 @@ func TestBuildColumn(t *testing.T) {
 			t.Fatalf("error = %v", err)
 		}
 	})
+
+	t.Run("foreign key", func(t *testing.T) {
+		got, err := buildColumn(UUID("site_id").NotNull().References("sites", "id"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := "site_id UUID NOT NULL REFERENCES sites(id)"
+		if got != want {
+			t.Fatalf("SQL = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("missing reference table", func(t *testing.T) {
+		_, err := buildColumn(UUID("site_id").References("", "id"))
+		if err == nil || err.Error() != "reference table is required" {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("missing reference column", func(t *testing.T) {
+		_, err := buildColumn(UUID("site_id").References("sites", ""))
+		if err == nil || err.Error() != "reference column is required" {
+			t.Fatalf("error = %v", err)
+		}
+	})
 }
 
 func TestBuild(t *testing.T) {
@@ -352,6 +377,33 @@ func TestGeneratedSQLIsValid(t *testing.T) {
 		}
 	})
 
+	t.Run("foreign key", func(t *testing.T) {
+		parent, err := Build(Table{
+			Name: "schema_fk_sites",
+			Columns: []Column{
+				UUID("id").PrimaryKey(),
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tx.Exec(ctx, parent); err != nil {
+			t.Fatalf("create parent: %v", err)
+		}
+
+		childColumn := UUID("site_id").NotNull().References("schema_fk_sites", "id")
+		definition, err := buildColumn(childColumn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		statement := fmt.Sprintf("CREATE TABLE schema_fk_reactors (%s)", definition)
+		if _, err := tx.Exec(ctx, statement); err != nil {
+			t.Fatalf("exec %s: %v", statement, err)
+		}
+
+		assertForeignKey(t, tx, "schema_fk_reactors", "site_id", "schema_fk_sites", "id")
+	})
+
 	t.Run("drop table", func(t *testing.T) {
 		table := Table{
 			Name: "schema_drop",
@@ -474,6 +526,34 @@ func assertColumn(t *testing.T, tx pgx.Tx, table string, tc columnCase) {
 		if !tc.unique {
 			t.Fatalf("%s.%s is unique", table, tc.column.name)
 		}
+	}
+}
+
+func assertForeignKey(t *testing.T, tx pgx.Tx, table, column, refTable, refColumn string) {
+	t.Helper()
+	ctx := context.Background()
+
+	var gotTable, gotColumn string
+	err := tx.QueryRow(ctx, `
+		SELECT ccu.table_name, ccu.column_name
+		FROM information_schema.table_constraints AS tc
+		JOIN information_schema.key_column_usage AS kcu
+		  ON tc.constraint_name = kcu.constraint_name
+		 AND tc.table_schema = kcu.table_schema
+		 AND tc.table_name = kcu.table_name
+		JOIN information_schema.constraint_column_usage AS ccu
+		  ON ccu.constraint_name = tc.constraint_name
+		 AND ccu.table_schema = tc.table_schema
+		WHERE tc.table_schema = 'public'
+		  AND tc.table_name = $1
+		  AND tc.constraint_type = 'FOREIGN KEY'
+		  AND kcu.column_name = $2
+	`, table, column).Scan(&gotTable, &gotColumn)
+	if err != nil {
+		t.Fatalf("foreign key %s.%s: %v", table, column, err)
+	}
+	if gotTable != refTable || gotColumn != refColumn {
+		t.Fatalf("%s.%s references %s.%s, want %s.%s", table, column, gotTable, gotColumn, refTable, refColumn)
 	}
 }
 

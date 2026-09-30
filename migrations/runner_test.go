@@ -33,7 +33,7 @@ func TestMigrationsTableSQL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "CREATE TABLE migrations (id UUID PRIMARY KEY DEFAULT uuidv7(), version INT NOT NULL UNIQUE, name TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)"
+	want := "CREATE TABLE IF NOT EXISTS migrations (id UUID PRIMARY KEY DEFAULT uuidv7(), version INT NOT NULL UNIQUE, name TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)"
 	if sql != want {
 		t.Fatalf("sql = %q", sql)
 	}
@@ -101,15 +101,15 @@ func TestValidateMigrationEntry(t *testing.T) {
 	})
 }
 
-func TestValidateMigration(t *testing.T) {
+func TestValidateMigrations(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		if err := validateMigration(nil); err != nil {
+		if err := validateMigrations(nil); err != nil {
 			t.Fatal(err)
 		}
 	})
 
 	t.Run("unique", func(t *testing.T) {
-		err := validateMigration([]Migration{
+		err := validateMigrations([]Migration{
 			validMigration(1, "one"),
 			validMigration(2, "two"),
 		})
@@ -119,7 +119,7 @@ func TestValidateMigration(t *testing.T) {
 	})
 
 	t.Run("duplicate version", func(t *testing.T) {
-		err := validateMigration([]Migration{
+		err := validateMigrations([]Migration{
 			validMigration(1, "one"),
 			validMigration(1, "again"),
 		})
@@ -129,7 +129,7 @@ func TestValidateMigration(t *testing.T) {
 	})
 
 	t.Run("entry error keeps its index", func(t *testing.T) {
-		err := validateMigration([]Migration{
+		err := validateMigrations([]Migration{
 			validMigration(1, "one"),
 			{Version: 2, Up: noop, Down: noop},
 		})
@@ -404,12 +404,21 @@ func TestApplyPending(t *testing.T) {
 		return nil
 	}
 
-	err := applyPending(context.Background(), db, migrations, map[int]bool{1: true})
+	results, err := applyPending(context.Background(), db, migrations, map[int]bool{1: true})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(ran) != 1 || ran[0] != 2 {
 		t.Fatalf("ran = %#v", ran)
+	}
+	if len(results) != 2 {
+		t.Fatalf("results = %#v", results)
+	}
+	if results[0].Version != 1 || results[0].Name != "one" || results[0].Applied || results[0].Duration != 0 {
+		t.Fatalf("already applied = %#v", results[0])
+	}
+	if results[1].Version != 2 || results[1].Name != "two" || !results[1].Applied || results[1].Duration < 0 {
+		t.Fatalf("applied = %#v", results[1])
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
@@ -420,10 +429,10 @@ func TestApplyPendingError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
 
-	err := applyPending(context.Background(), db, []Migration{
+	_, err := applyPending(context.Background(), db, []Migration{
 		validMigration(1, "one"),
 	}, map[int]bool{})
-	if err == nil || !strings.Contains(err.Error(), `run migration 1 "one"`) {
+	if err == nil || !strings.Contains(err.Error(), `apply pending migration 1 "one"`) {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -449,11 +458,15 @@ func TestRun(t *testing.T) {
 		ran = true
 		return nil
 	}
-	if err := Run(context.Background(), db, []Migration{migration}); err != nil {
+	results, err := Run(context.Background(), db, []Migration{migration})
+	if err != nil {
 		t.Fatal(err)
 	}
 	if !ran {
 		t.Fatal("migration not run")
+	}
+	if len(results) != 1 || results[0].Version != 1 || results[0].Name != "one" || !results[0].Applied {
+		t.Fatalf("results = %#v", results)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
@@ -462,7 +475,7 @@ func TestRun(t *testing.T) {
 
 func TestRunValidateError(t *testing.T) {
 	db, _ := newDB(t)
-	err := Run(context.Background(), db, []Migration{{Version: 0}})
+	_, err := Run(context.Background(), db, []Migration{{Version: 0}})
 	if err == nil || err.Error() != "validate migrations: migration 0 version must be positive" {
 		t.Fatalf("error = %v", err)
 	}
@@ -476,7 +489,7 @@ func TestRunEnsureError(t *testing.T) {
 	}
 	mock.ExpectExec(createSQL).WillReturnError(errors.New("exec failed"))
 
-	err = Run(context.Background(), db, nil)
+	_, err = Run(context.Background(), db, nil)
 	if err == nil || err.Error() != "ensure migrations table: create migrations table: exec failed" {
 		t.Fatalf("error = %v", err)
 	}
@@ -491,7 +504,7 @@ func TestRunAppliedVersionsError(t *testing.T) {
 	mock.ExpectExec(createSQL).WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectQuery("SELECT version FROM migrations").WillReturnError(errors.New("query failed"))
 
-	err = Run(context.Background(), db, nil)
+	_, err = Run(context.Background(), db, nil)
 	if err == nil || err.Error() != "query applied versions: query failed" {
 		t.Fatalf("error = %v", err)
 	}
