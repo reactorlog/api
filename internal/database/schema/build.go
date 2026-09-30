@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/reactorlog/api/internal/database/expr"
 )
 
 func validateColumn(c Column) error {
@@ -64,7 +66,24 @@ func buildColumn(c Column) (string, error) {
 
 	parts := []string{c.name, string(c.columnType)}
 	parts = append(parts, columnModifiers(c)...)
+	checks, err := buildChecks(c.checks)
+	if err != nil {
+		return "", err
+	}
+	parts = append(parts, checks...)
 	return strings.Join(parts, " "), nil
+}
+
+func buildChecks(conditions []expr.Condition) ([]string, error) {
+	checks := make([]string, 0, len(conditions))
+	for _, condition := range conditions {
+		check, err := expr.Build(condition, formatLiteral)
+		if err != nil {
+			return nil, fmt.Errorf("build check: %w", err)
+		}
+		checks = append(checks, "CHECK ("+check+")")
+	}
+	return checks, nil
 }
 
 func validateTable(t Table) error {

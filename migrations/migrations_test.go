@@ -61,6 +61,7 @@ func resetTestDatabase(
 	t.Helper()
 
 	_, err := db.ExecContext(ctx, `
+		DROP TABLE IF EXISTS reactors CASCADE;
 		DROP TABLE IF EXISTS migrations CASCADE;
 		DROP TABLE IF EXISTS sites CASCADE;
 	`)

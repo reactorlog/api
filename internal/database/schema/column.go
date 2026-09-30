@@ -1,5 +1,7 @@
 package schema
 
+import "github.com/reactorlog/api/internal/database/expr"
+
 type columnType string
 
 const (
@@ -33,6 +35,7 @@ type Column struct {
 	unique      bool
 	defaultType defaultType
 	reference   *Reference
+	checks      []expr.Condition
 }
 
 func newColumn(name string, columnType columnType) Column {
@@ -105,4 +108,22 @@ func (c Column) DefaultCurrentTimestamp() Column {
 func (c Column) DefaultUUIDV7() Column {
 	c.defaultType = uuidv7Default
 	return c
+}
+
+// Check adds a condition that PostgreSQL enforces when rows are written.
+func (c Column) Check(condition expr.Condition) Column {
+	checks := make([]expr.Condition, len(c.checks)+1)
+	copy(checks, c.checks)
+	checks[len(c.checks)] = condition
+	c.checks = checks
+	return c
+}
+
+// Between adds inclusive bounds. Use NotNull separately to require a value.
+func (c Column) Between(min, max float64) Column {
+	column := expr.Column(c.name)
+	return c.Check(expr.And(
+		column.GreaterThanOrEqual(min),
+		column.LessThanOrEqual(max),
+	))
 }

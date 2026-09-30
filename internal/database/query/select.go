@@ -52,7 +52,7 @@ func (q SelectQuery) Build() (string, []any, error) {
 		q.table,
 	)
 	if q.where != nil {
-		where, err := q.where.build(b)
+		where, err := b.buildCondition(q.where)
 		if err != nil {
 			return "", nil, err
 		}
