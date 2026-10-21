@@ -47,6 +47,54 @@ make test
 
 `make test` loads the root `.env` file. `make test-db` creates an optional `reactorlog_test` database for local development.
 
+## benchmarks
+
+```sh
+make bench
+make bench BENCH_COUNT=1 BENCH_TIME=100ms # quick smoke check
+```
+
+No postgres or `.env` is needed. The initial benchmarks measure `Build()` for a
+docket lookup, combined reactor filters, and a reactor insert. Query setup and
+output validation are outside the timed `b.Loop()`; SQL rendering and argument
+allocation are inside. These measure query construction, not database execution
+or API latency.
+
+Capture measurements before and after an implementation change:
+
+```sh
+make bench-save BENCH_OUTPUT=.benchmarks/before.txt
+# change the implementation, keeping the benchmark inputs unchanged
+make bench-save BENCH_OUTPUT=.benchmarks/after.txt
+make bench-compare BASE=.benchmarks/before.txt NEW=.benchmarks/after.txt
+```
+
+Each benchmark runs ten times for one second per measurement by default. Override
+`BENCH_PACKAGES`, `BENCH_PATTERN`, `BENCH_COUNT`, or `BENCH_TIME` to narrow or extend
+a run. For example:
+
+```sh
+make bench BENCH_PACKAGES=./internal/database/query BENCH_PATTERN=BenchmarkSelectBuild
+```
+
+`bench-compare` downloads a pinned version of `benchstat` on first use without
+adding application dependencies. Results report time, bytes allocated, and
+allocations per operation. Local results are ignored by git. A failed capture
+leaves a `.tmp` file and preserves the previous result.
+
+Use the same machine, Go version, input data, and runtime settings for both sides.
+Record the commit and `go version` with results you share. Keep the machine idle;
+alternate baseline and candidate runs when checking small differences. Treat an
+inconclusive comparison as inconclusive. Check correctness and end-to-end impact
+before claiming a speedup. Collect profiles separately from reported timings:
+
+```sh
+mkdir -p .benchmarks
+go test ./internal/database/query -run='^$' -bench=BenchmarkSelectBuild/docket \
+  -benchtime=5s -cpuprofile=.benchmarks/cpu.out -o .benchmarks/query.test
+go tool pprof .benchmarks/query.test .benchmarks/cpu.out
+```
+
 ## code map
 
 | path | responsibility |
