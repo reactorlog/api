@@ -1,0 +1,18 @@
+{
+  "files": [
+    "internal/ingestion/nrc/store.go",
+    "migrations/1_create_sites.go"
+  ],
+  "functions": "siteFor, store; sites_name_location index",
+  "property": "resolving an existing docket returns its stored site identity",
+  "harm": "metadata can be written to a different site from the reactor\u2019s stored site",
+  "bound": "two sites, one known docket, matching and nonmatching source identities",
+  "old": "SELECT site_id FROM reactors WHERE docket_number = $1",
+  "new": "SELECT site_id FROM reactors WHERE docket_number = $1 AND FALSE",
+  "sha256": {
+    "internal/ingestion/nrc/store.go": "66e46b669baf93eb5b8423e071995e02e0a7bf40b6b6a50345a41b85839783fc",
+    "migrations/1_create_sites.go": "eeb5b53fe5095d3f6db932a24dcdc34f137194b5fdea1db9905117c46dfd48c8"
+  },
+  "test_package": "./internal/ingestion/nrc",
+  "test_name": "TestVerificationExistingSite"
+}

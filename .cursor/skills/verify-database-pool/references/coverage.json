@@ -1,0 +1,18 @@
+{
+  "files": [
+    "internal/database/database.go",
+    "cmd/reactorlog/server.go"
+  ],
+  "functions": "openPool, verifyPool, Connect, runServer",
+  "property": "a pool allocated before a failed ping is closed",
+  "harm": "failed connection attempts can retain resources",
+  "bound": "allocation success/failure crossed with ping success/failure",
+  "old": "pool.Close()",
+  "new": "/* pool close removed */",
+  "sha256": {
+    "internal/database/database.go": "684fd8f8b8e252e2aa27c415d447d06b093d0c8fb1583cdd9226c56258b2b408",
+    "cmd/reactorlog/server.go": "6aff05c094d55516f26ceec5993818322b124ae6c17042c3a792d0c7bac0b52e"
+  },
+  "test_package": "./internal/database",
+  "test_name": "TestVerificationPoolClosed"
+}

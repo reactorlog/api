@@ -1,0 +1,16 @@
+{
+  "files": [
+    "internal/ingestion/nrc/nrc.go"
+  ],
+  "functions": "Parse table candidate loop",
+  "property": "acceptance requires exactly one matching reactor table",
+  "harm": "an ambiguous document can silently select the wrong table",
+  "bound": "all sequences of zero to four matching/nonmatching table candidates",
+  "old": "if table != nil {",
+  "new": "if false {",
+  "sha256": {
+    "internal/ingestion/nrc/nrc.go": "ee2b12b5e03765e1c68a191c53af488f45d5d85cc38840a3bc49e38988ea22e4"
+  },
+  "test_package": "./internal/ingestion/nrc",
+  "test_name": "TestVerificationAmbiguousTables"
+}
