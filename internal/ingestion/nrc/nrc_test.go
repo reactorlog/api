@@ -79,6 +79,18 @@ func TestFetchURL(t *testing.T) {
 
 	t.Run("page", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			want := map[string]string{
+				"User-Agent":     "Reactorlog/1.0 (NRC reference data ingestion)",
+				"Sec-Fetch-Dest": "document",
+				"Sec-Fetch-Mode": "navigate",
+				"Sec-Fetch-Site": "none",
+				"Sec-Fetch-User": "?1",
+			}
+			for key, value := range want {
+				if got := r.Header.Get(key); got != value {
+					t.Errorf("%s = %q, want %q", key, got, value)
+				}
+			}
 			_, _ = w.Write([]byte(fixture(t)))
 		}))
 		defer server.Close()
