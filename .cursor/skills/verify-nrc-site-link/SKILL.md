@@ -1,11 +1,11 @@
 ---
 name: verify-nrc-site-link
-description: Verify NRC site linking when modifying store, import.sql, or the sites_name_location index. Run the TLA+ model and the Go mutation check.
+description: Verify NRC site linking when modifying store, import.sql, or the sites_name_key index. Run the TLA+ model and the Go mutation check.
 ---
 
 # verify nrc site link
 
-The property is that a new docket joins the site with its name and location, and a stored docket keeps its site. A violation means a second site is created for a plant that already exists, or a rename that collides commits a partial import.
+The property is that a new docket joins the site with its name, and a stored docket keeps its site. A violation means a second site is created for a plant that already exists, or a rename that collides commits a partial import.
 
 ## run
 
@@ -19,9 +19,9 @@ A nonzero exit means the invariant failed, the broken model passed, a Go mutatio
 
 ## coverage
 
-Read `references/coverage.json` and `NrcSiteLink.tla` before interpreting a result. Covered code is `store` in `internal/ingestion/nrc/store.go` and `internal/ingestion/nrc/sql/import.sql`, and the unique index `sites_name_location` in `migrations/sql/1_create_sites.up.sql`.
+Read `references/coverage.json` and `NrcSiteLink.tla` before interpreting a result. Covered code is `store` in `internal/ingestion/nrc/store.go` and `internal/ingestion/nrc/sql/import.sql`, and the unique index `sites_name_key` in `migrations/sql/1_create_sites_and_reactors.up.sql`.
 
-Bounds are two sites, two dockets, two name-location keys, and six batches of at most two rows inside one statement. `Broken = FALSE` is that statement. `NrcSiteLinkBroken.cfg` skips the name-and-location join.
+Bounds are two sites, two dockets, two name keys, and six batches of at most two rows inside one statement. `Broken = FALSE` is that statement. `NrcSiteLinkBroken.cfg` skips the name join.
 
 `Import` renames every stored site, then links new dockets. `Reject` is the unique-index error followed by `defer tx.Rollback`. The reactor upsert does not change `site_id` or `design`.
 
@@ -31,10 +31,10 @@ Baseline commit is `e1622e04eaf33bbc4002c6a87c5b02e09f6ececb`. The covered files
 
 ## when a check fails
 
-Replay the TLC path against `import.sql`: stored sites are renamed, then a new docket joins by name and location or a site is inserted, then reactors are upserted. If a step cannot happen in that statement, the model is wrong. If every step can happen, the code breaks the property. Say the path as lookups and writes, not as TLA+ names. Do not weaken `NewDocketJoins` to obtain a pass.
+Replay the TLC path against `import.sql`: stored sites are renamed, then a new docket joins by name or a site is inserted, then reactors are upserted. If a step cannot happen in that statement, the model is wrong. If every step can happen, the code breaks the property. Say the path as lookups and writes, not as TLA+ names. Do not weaken `NewDocketJoins` to obtain a pass.
 
-A Go failure of `TestVerificationNewDocketJoinsSite` is the same property on the SQL file the function executes. The mutation adds `and false` to the name-and-location match. The test must fail, and the restored file must pass.
+A Go failure of `TestVerificationNewDocketJoinsSite` is the same property on the SQL file the function executes. The mutation adds `and false` to the name match. The test must fail, and the restored file must pass.
 
 ## leaves out
 
-Advisory-lock mutual exclusion is `verify-import-run`. Which enrichment columns are written is `verify-import-enrichment`. Fetch, parse, deletes, and more than two rows are out of this model. PostgreSQL treats nulls in the unique index as distinct; this model has no null name or location, because NRC import always writes both.
+Advisory-lock mutual exclusion is `verify-import-run`. Which enrichment columns are written is `verify-import-enrichment`. Fetch, parse, deletes, and more than two rows are out of this model. This model has no null name, because NRC import always writes a site name. Location is an attribute, not part of the join key.

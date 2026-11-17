@@ -1,10 +1,10 @@
 {
   "files": [
     "migrations/runner.go",
-    "migrations/sql/3_nrc_reference_data.up.sql",
-    "migrations/sql/3_nrc_reference_data.down.sql"
+    "migrations/sql/1_create_sites_and_reactors.up.sql",
+    "migrations/sql/1_create_sites_and_reactors.down.sql"
   ],
-  "functions": "Run, applyPending, runMigration, recordMigration; migration 3 Up/Down",
+  "functions": "Run, applyPending, runMigration, recordMigration; migration 1 Up/Down",
   "property": "committed schema effects and the migration record become visible together",
   "harm": "a recorded migration with missing effects causes future runs to skip required work",
   "bound": "one migration, all failures before and after each write, both outcomes of an uncertain commit",
@@ -12,8 +12,8 @@
   "new": "if err := recordMigration(ctx, tx, migration); err != nil { return err }; return tx.Commit(); if err := execSQL(ctx, tx, migration.Up); err != nil {",
   "sha256": {
     "migrations/runner.go": "ebdf61f4fa448d1deeb639f3bb1e7e08a7a23c70fd4a9c381ab0978f054d5bc2",
-    "migrations/sql/3_nrc_reference_data.up.sql": "0d576e3e315d061d08484a86850b0aca1c40639f3b612d4d21a9e0b205d55896",
-    "migrations/sql/3_nrc_reference_data.down.sql": "d4aaccf0a0619a0269e895f5a8967cf6568e71d782b8d29686943bc8ef9b1cb4"
+    "migrations/sql/1_create_sites_and_reactors.up.sql": "3adfcf4a29d812291fa37ba382e80f93d7481722781f27e187c018c0b7d2ae38",
+    "migrations/sql/1_create_sites_and_reactors.down.sql": "dc05cce66a7ad1b4bd7bce53d96d59be8bd6e9b35d2189931c06536ca74f4583"
   },
   "test_package": "./migrations",
   "test_name": "TestRunMigration"

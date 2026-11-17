@@ -17,7 +17,7 @@ def explore(broken=False):
         original_site = 0
         sites = {0: 'old', 1: 'other'}
         trace = ['known docket resolves to site 0', f'source identity = {source_identity}']
-        # The import resolves a stored docket before a new docket matches name and location.
+        # The import resolves a stored docket before a new docket matches name.
         if broken:
             selected_site = next((key for key, value in sites.items() if value == source_identity), 2)
         else:

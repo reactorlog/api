@@ -142,8 +142,8 @@ func TestMigratedSchema(t *testing.T) {
 	if _, err := db.ExecContext(ctx, `insert into sites (name, location) values ('No zone', 'nowhere')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(ctx, `insert into sites (name, location) values ('No zone', 'nowhere')`); err == nil {
-		t.Fatal("duplicate name and location was accepted")
+	if _, err := db.ExecContext(ctx, `insert into sites (name, location) values ('No zone', 'elsewhere')`); err == nil {
+		t.Fatal("duplicate name was accepted")
 	}
 	if _, err := db.ExecContext(ctx, `
 		insert into reactors (site_id, name, unit_number, docket_number, reactor_type)

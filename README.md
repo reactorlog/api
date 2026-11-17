@@ -47,23 +47,22 @@ This covers the units in that list, rather than retired, proposed, or research r
 It imports reactor names, unit numbers, eight-digit docket numbers (including leading
 zeros), reactor types, site names, locations, and state abbreviations. An unnumbered
 unit in this list is represented as unit 1. Site names are the unit names with the
-trailing unit number removed. A site is one name at one location. Two units at the
-same place share that site. This identifies named facilities, not shared physical
-campuses that the list gives different names.
+trailing unit number removed. A site is identified by its name. Two units that
+share a site name share that site. Location is descriptive text from the list.
+Named facilities stay separate when they share a location string, such as two
+plants near Oswego.
 
 Reactors match by docket number. A stored reactor keeps its site, and that site's
 name, location, and state are updated from the list. A new reactor joins the site
-with the same name and location, or a site is created. Giving one site another
-site's name and location fails the transaction rather than merging the two sites.
+with the same name, or a site is created. Giving one site another site's name
+fails the transaction rather than merging the two sites.
 
 All rows are validated before database writes. Each run is transactional, concurrent
 imports are serialized, and repeated imports update existing records. Units absent
 from a later list are retained. The list does not provide timezone, design,
-coordinates, EIA codes, or contact details; these remain NULL on new records and
-are preserved on existing records. No timezone is inferred from state.
-
-Migration 3 makes timezone and design nullable. Its rollback requires filling any NULL
-timezone and design values first.
+coordinates, EIA codes, or contact details. The initial schema leaves timezone and
+design nullable so those fields stay NULL on new records and are preserved on
+existing records. No timezone is inferred from state.
 
 The parser fixture is the NRC unit table retrieved on November 5, 2026. It is
 used to detect markup changes without network-dependent tests.
