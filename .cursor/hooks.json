@@ -24,6 +24,12 @@
         "matcher": "git commit",
         "timeout": 60,
         "failClosed": true
+      },
+      {
+        "command": ".cursor/hooks/verify-before-commit.sh",
+        "matcher": "git commit",
+        "timeout": 1800,
+        "failClosed": true
       }
     ]
   }
