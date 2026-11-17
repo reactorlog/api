@@ -21,7 +21,7 @@ export const step = (action) => {
   const labels = {
     Start: "start the import",
     Import: "rename stored plants, then link new reactors",
-    Reject: "the name and location already belong to another plant",
+    Reject: "the name already belongs to another plant",
   };
   return labels[action] ?? null;
 };

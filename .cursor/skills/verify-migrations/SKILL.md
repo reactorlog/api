@@ -1,6 +1,6 @@
 ---
 name: verify-migrations
-description: Verify reactorlog migrations state transitions when modifying Run, applyPending, runMigration, recordMigration; migration 3 Up/Down. Run the bounded model and review its correspondence to the Go implementation.
+description: Verify reactorlog migrations state transitions when modifying Run, applyPending, runMigration, recordMigration; migration 1 Up/Down. Run the bounded model and review its correspondence to the Go implementation.
 ---
 
 # verify migrations
@@ -20,7 +20,7 @@ A nonzero exit indicates a violated property, a surviving mutation, or source th
 
 ## coverage and model
 
-Read `references/coverage.json` and `scripts/verify.py` before interpreting a result. Covered functions are Run, applyPending, runMigration, recordMigration; migration 3 Up/Down. Covered source paths and exact SHA-256 fingerprints are in the coverage record.
+Read `references/coverage.json` and `scripts/verify.py` before interpreting a result. Covered functions are Run, applyPending, runMigration, recordMigration; migration 1 Up/Down. Covered source paths and exact SHA-256 fingerprints are in the coverage record.
 
 Bounds are one migration, all failures before and after each write, both outcomes of an uncertain commit. The checker exhaustively enumerates that finite abstraction. External operations are represented by outcomes. Model transitions are explained at the corresponding statements in the script. Database atomicity and transaction-scoped advisory locking are assumptions supplied by PostgreSQL. A commit error may represent either durable outcome.
 
@@ -32,4 +32,4 @@ When source fingerprints differ, inspect the actual diff, remap every affected t
 
 The checker does not verify arbitrary Go execution, SQL semantics, liveness, crashes, networking, or unbounded input sizes. The source fingerprint gate detects drift but does not prove correspondence. Review these assumptions before relying on a pass.
 
-Known audit concerns outside this property: concurrent runners can both see a version as pending, and migration 3 Down fails while nullable metadata remains unknown.
+Known audit concerns outside this property: concurrent runners can both see a version as pending.

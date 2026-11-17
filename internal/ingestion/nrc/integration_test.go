@@ -59,9 +59,9 @@ func TestReferenceImportDatabase(t *testing.T) {
 		}
 	}
 	var count, sites, expectedSites int
-	keys := map[[2]string]bool{}
+	keys := map[string]bool{}
 	for _, r := range records {
-		keys[[2]string{r.SiteName, r.Location}] = true
+		keys[r.SiteName] = true
 	}
 	expectedSites = len(keys)
 	if err := db.QueryRow("select count(*) from reactors").Scan(&count); err != nil || count != 95 {
@@ -89,10 +89,9 @@ func TestReferenceImportDatabase(t *testing.T) {
 	if name != records[0].Name || design != "existing design" {
 		t.Fatalf("name=%s, design=%s", name, design)
 	}
-	// Renaming a stored site onto another site's name and location must roll back.
+	// Renaming a stored site onto another site's name must roll back.
 	records[0].Name = "Should roll back"
 	records[0].SiteName = records[2].SiteName
-	records[0].Location = records[2].Location
 	if _, err := store(ctx, db, records[:1]); err == nil {
 		t.Fatal("expected site identity conflict")
 	}

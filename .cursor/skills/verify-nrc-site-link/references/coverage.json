@@ -1,0 +1,18 @@
+{
+  "files": [
+    "internal/ingestion/nrc/sql/import.sql",
+    "migrations/sql/1_create_sites_and_reactors.up.sql"
+  ],
+  "functions": "store; import.sql; sites_name_key index",
+  "property": "a new docket joins the site with its name, and a stored docket keeps its site",
+  "harm": "a second site is created for a plant that already exists, or a rename that collides commits a partial import",
+  "bound": "two sites, two dockets, two name keys, six batches of at most two rows, one import statement",
+  "old": "where occupied.name = incoming.site_name",
+  "new": "where occupied.name = incoming.site_name\n          and false",
+  "sha256": {
+    "internal/ingestion/nrc/sql/import.sql": "08562abe79562c2da757095da77c31e04f966530ab19055fc5ae86306f00b93c",
+    "migrations/sql/1_create_sites_and_reactors.up.sql": "3adfcf4a29d812291fa37ba382e80f93d7481722781f27e187c018c0b7d2ae38"
+  },
+  "test_package": "./internal/ingestion/nrc",
+  "test_name": "TestVerificationNewDocketJoinsSite"
+}

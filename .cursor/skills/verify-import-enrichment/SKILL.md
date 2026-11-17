@@ -1,6 +1,6 @@
 ---
 name: verify-import-enrichment
-description: Verify which enrichment fields an NRC import writes when modifying store, import.sql, or migration 3. Run the TLA+ model and the Go mutation check.
+description: Verify which enrichment fields an NRC import writes when modifying store, import.sql, or the initial schema nullability for timezone and design. Run the TLA+ model and the Go mutation check.
 ---
 
 # verify import enrichment
@@ -19,7 +19,7 @@ A nonzero exit means the invariant failed, the broken model passed, a Go mutatio
 
 ## coverage
 
-Read `references/coverage.json` and `ImportEnrichment.tla` before interpreting a result. Covered code is `store` in `internal/ingestion/nrc/store.go`, `internal/ingestion/nrc/sql/import.sql`, and migration 3 in `migrations/sql/3_nrc_reference_data.up.sql`, which drops `NOT NULL` on `sites.timezone` and `reactors.design`.
+Read `references/coverage.json` and `ImportEnrichment.tla` before interpreting a result. Covered code is `store` in `internal/ingestion/nrc/store.go`, `internal/ingestion/nrc/sql/import.sql`, and `migrations/sql/1_create_sites_and_reactors.up.sql`, which leaves `sites.timezone` and `reactors.design` nullable.
 
 Bounds are three imports: a stored reactor whose design, timezone, and address are set and whose coordinates are half-set; a new reactor joining that site; a new site and reactor. `Reimport` is the docket hit: the site update writes name, location, and state, and the reactor upsert writes name, unit, and type. `Join` returns the existing site id and does not update the site. `Create` inserts a site with name, location, and state, and a reactor without design. `Broken` sets design to empty on reimport.
 
@@ -35,4 +35,4 @@ Replay the TLC path against `import.sql`. The site update writes name, location,
 
 ## leaves out
 
-Which site a docket is linked to is `verify-nrc-site-link`. A writer other than `store` may set these columns. This model does not include that writer. It checks that `store` does not clear the value. Null `sites.location` and the unique index are out of this model.
+Which site a docket is linked to is `verify-nrc-site-link`. A writer other than `store` may set these columns. This model does not include that writer. It checks that `store` does not clear the value. Null `sites.location` and `sites_name_key` are out of this model.

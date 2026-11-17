@@ -21,7 +21,7 @@ func newDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 }
 
 func validMigration(version int, name string) Migration {
-	return Migration{Version: version, Name: name, Up: createSitesUp, Down: createSitesDown}
+	return Migration{Version: version, Name: name, Up: createSitesAndReactorsUp, Down: createSitesAndReactorsDown}
 }
 
 func expectScript(mock sqlmock.Sqlmock, script string) {
@@ -38,27 +38,27 @@ func TestValidateMigrationEntry(t *testing.T) {
 	}{
 		{
 			name:      "negative version",
-			migration: Migration{Version: -1, Name: "n", Up: createSitesUp, Down: createSitesDown},
+			migration: Migration{Version: -1, Name: "n", Up: createSitesAndReactorsUp, Down: createSitesAndReactorsDown},
 			want:      "migration 2 version must be positive",
 		},
 		{
 			name:      "zero version",
-			migration: Migration{Version: 0, Name: "n", Up: createSitesUp, Down: createSitesDown},
+			migration: Migration{Version: 0, Name: "n", Up: createSitesAndReactorsUp, Down: createSitesAndReactorsDown},
 			want:      "migration 2 version must be positive",
 		},
 		{
 			name:      "missing name",
-			migration: Migration{Version: 1, Up: createSitesUp, Down: createSitesDown},
+			migration: Migration{Version: 1, Up: createSitesAndReactorsUp, Down: createSitesAndReactorsDown},
 			want:      "migration 2: name is required",
 		},
 		{
 			name:      "missing up",
-			migration: Migration{Version: 1, Name: "n", Down: createSitesDown},
+			migration: Migration{Version: 1, Name: "n", Down: createSitesAndReactorsDown},
 			want:      "migration 2: up sql is required",
 		},
 		{
 			name:      "missing down",
-			migration: Migration{Version: 1, Name: "n", Up: createSitesUp},
+			migration: Migration{Version: 1, Name: "n", Up: createSitesAndReactorsUp},
 			want:      "migration 2: down sql is required",
 		},
 	}
@@ -109,7 +109,7 @@ func TestValidateMigrations(t *testing.T) {
 	t.Run("entry error keeps its index", func(t *testing.T) {
 		err := validateMigrations([]Migration{
 			validMigration(1, "one"),
-			{Version: 2, Up: createSitesUp, Down: createSitesDown},
+			{Version: 2, Up: createSitesAndReactorsUp, Down: createSitesAndReactorsDown},
 		})
 		if err == nil || err.Error() != "migration 1: name is required" {
 			t.Fatalf("error = %v", err)
@@ -269,7 +269,7 @@ func TestRecordMigrationExecError(t *testing.T) {
 func TestRunMigration(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	expectScript(mock, createSitesUp)
+	expectScript(mock, createSitesAndReactorsUp)
 	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "test").
 		WillReturnResult(sqlmock.NewResult(0, 0))
@@ -296,7 +296,7 @@ func TestRunMigrationBeginError(t *testing.T) {
 func TestRunMigrationUpError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	mock.ExpectExec(splitSQL(createSitesUp)[0]).WillReturnError(errors.New("up failed"))
+	mock.ExpectExec(splitSQL(createSitesAndReactorsUp)[0]).WillReturnError(errors.New("up failed"))
 	mock.ExpectRollback()
 
 	err := runMigration(context.Background(), db, validMigration(1, "test"))
@@ -311,7 +311,7 @@ func TestRunMigrationUpError(t *testing.T) {
 func TestRunMigrationRecordError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	expectScript(mock, createSitesUp)
+	expectScript(mock, createSitesAndReactorsUp)
 	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "test").
 		WillReturnError(errors.New("exec failed"))
@@ -329,7 +329,7 @@ func TestRunMigrationRecordError(t *testing.T) {
 func TestRunMigrationCommitError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	expectScript(mock, createSitesUp)
+	expectScript(mock, createSitesAndReactorsUp)
 	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "test").
 		WillReturnResult(sqlmock.NewResult(0, 0))
@@ -347,7 +347,7 @@ func TestRunMigrationCommitError(t *testing.T) {
 func TestApplyPending(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	expectScript(mock, createReactorsUp)
+	expectScript(mock, createSitesAndReactorsUp)
 	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(2, "two").
 		WillReturnResult(sqlmock.NewResult(0, 0))
@@ -355,7 +355,7 @@ func TestApplyPending(t *testing.T) {
 
 	migrations := []Migration{
 		validMigration(1, "one"),
-		{Version: 2, Name: "two", Up: createReactorsUp, Down: createReactorsDown},
+		{Version: 2, Name: "two", Up: createSitesAndReactorsUp, Down: createSitesAndReactorsDown},
 	}
 
 	results, err := applyPending(context.Background(), db, migrations, map[int]bool{1: true})
@@ -394,7 +394,7 @@ func TestRun(t *testing.T) {
 	mock.ExpectQuery(appliedVersionsSQL).
 		WillReturnRows(sqlmock.NewRows([]string{"version"}))
 	mock.ExpectBegin()
-	expectScript(mock, createSitesUp)
+	expectScript(mock, createSitesAndReactorsUp)
 	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "one").
 		WillReturnResult(sqlmock.NewResult(0, 0))
