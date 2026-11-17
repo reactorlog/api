@@ -1,0 +1,2 @@
+select version
+from migrations;

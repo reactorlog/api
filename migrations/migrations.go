@@ -1,10 +1,6 @@
 package migrations
 
-import (
-	"context"
-	"database/sql"
-	"time"
-)
+import "time"
 
 type Result struct {
 	Version  int
@@ -16,11 +12,12 @@ type Result struct {
 type Migration struct {
 	Version int
 	Name    string
-	Up      func(ctx context.Context, tx *sql.Tx) error
-	Down    func(ctx context.Context, tx *sql.Tx) error
+	Up      string
+	Down    string
 }
 
 var All = []Migration{
-	createSitesMigration,
-	createReactorsMigration,
+	{Version: 1, Name: "create_sites", Up: createSitesUp, Down: createSitesDown},
+	{Version: 2, Name: "create_reactors", Up: createReactorsUp, Down: createReactorsDown},
+	{Version: 3, Name: "nrc_reference_data", Up: nrcReferenceDataUp, Down: nrcReferenceDataDown},
 }

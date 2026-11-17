@@ -9,7 +9,7 @@
   "old": "if table != nil {",
   "new": "if false {",
   "sha256": {
-    "internal/ingestion/nrc/nrc.go": "ee2b12b5e03765e1c68a191c53af488f45d5d85cc38840a3bc49e38988ea22e4"
+    "internal/ingestion/nrc/nrc.go": "f32f03c078f48af32c3245d8b7916a5143b7d6542a40945ad1b3b27b175ce936"
   },
   "test_package": "./internal/ingestion/nrc",
   "test_name": "TestVerificationAmbiguousTables"

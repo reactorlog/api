@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"os"
+	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -121,5 +122,64 @@ func assertMigrationCount(
 
 	if count != want {
 		t.Errorf("migration count = %d, want %d", count, want)
+	}
+}
+
+func TestMigratedSchema(t *testing.T) {
+	db := openTestDatabase(t)
+	ctx := context.Background()
+	resetTestDatabase(t, ctx, db)
+	if _, err := Run(ctx, db, All); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := db.ExecContext(ctx, `insert into sites (name, location, latitude) values ('Bound', 'place', 91)`); err == nil {
+		t.Fatal("latitude 91 was accepted")
+	}
+	if _, err := db.ExecContext(ctx, `insert into sites (name, location, latitude, longitude) values ('Edge', 'edge', 90, 180)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `insert into sites (name, location) values ('No zone', 'nowhere')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `insert into sites (name, location) values ('No zone', 'nowhere')`); err == nil {
+		t.Fatal("duplicate name and location was accepted")
+	}
+	if _, err := db.ExecContext(ctx, `
+		insert into reactors (site_id, name, unit_number, docket_number, reactor_type)
+		select id, 'No zone 1', '1', '05000001', 'PWR'
+		from sites
+		where name = 'No zone'
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		insert into reactors (site_id, name, unit_number, docket_number, reactor_type)
+		select id, 'No zone 2', '2', '05000001', 'PWR'
+		from sites
+		where name = 'No zone'
+	`); err == nil {
+		t.Fatal("duplicate docket was accepted")
+	}
+	if _, err := db.ExecContext(ctx, `
+		insert into reactors (site_id, name, unit_number, docket_number, reactor_type)
+		values ('00000000-0000-0000-0000-000000000000', 'Missing', '1', '05000002', 'PWR')
+	`); err == nil {
+		t.Fatal("reactor without a site was accepted")
+	}
+
+	var indexDef string
+	err := db.QueryRowContext(ctx, `
+		select pg_get_indexdef(c.oid)
+		from pg_class c
+		join pg_namespace n on n.oid = c.relnamespace
+		where n.nspname = current_schema()
+		  and c.relname = 'reactors_docket_number_key'
+	`).Scan(&indexDef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(indexDef, "site_id") {
+		t.Fatalf("docket index = %s", indexDef)
 	}
 }

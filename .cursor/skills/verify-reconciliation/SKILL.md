@@ -1,6 +1,6 @@
 ---
 name: verify-reconciliation
-description: Verify reactorlog reconciliation state transitions when modifying siteFor, store; sites_name_location index. Run the bounded model and review its correspondence to the Go implementation.
+description: Verify reactorlog reconciliation state transitions when modifying store, import.sql, or the sites_name_location index. Run the bounded model and review its correspondence to the Go implementation.
 ---
 
 # verify reconciliation
@@ -20,7 +20,7 @@ A nonzero exit indicates a violated property, a surviving mutation, or source th
 
 ## coverage and model
 
-Read `references/coverage.json` and `scripts/verify.py` before interpreting a result. Covered functions are siteFor, store; sites_name_location index. Covered source paths and exact SHA-256 fingerprints are in the coverage record.
+Read `references/coverage.json` and `scripts/verify.py` before interpreting a result. Covered functions are store and import.sql; sites_name_location index. Covered source paths and exact SHA-256 fingerprints are in the coverage record.
 
 Bounds are two sites, one known docket, matching and nonmatching source identities. The checker exhaustively enumerates that finite abstraction. External operations are represented by outcomes. Model transitions are explained at the corresponding statements in the script. Database atomicity and transaction-scoped advisory locking are assumptions supplied by PostgreSQL. A commit error may represent either durable outcome.
 

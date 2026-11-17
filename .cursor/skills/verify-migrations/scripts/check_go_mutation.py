@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(prefix='reactorlog-go-mutation-') as directory:
     for source in root.rglob('*'):
         relative=source.relative_to(root)
         if any(part.startswith('.') for part in relative.parts): continue
-        if source.is_file() and (source.suffix in ('.go','.html') or source.name in ('go.mod','go.sum')):
+        if source.is_file() and (source.suffix in ('.go','.html','.sql') or source.name in ('go.mod','go.sum')):
             target=copy/relative; target.parent.mkdir(parents=True,exist_ok=True); shutil.copyfile(source,target)
     extra=skill/'references/mutation_test.go'
     if extra.exists():

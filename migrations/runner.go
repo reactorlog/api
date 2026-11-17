@@ -6,42 +6,13 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
-
-	"github.com/reactorlog/api/internal/database/query"
-	"github.com/reactorlog/api/internal/database/schema"
 )
 
-var migrationsSchema = schema.Table{
-	Name:        "migrations",
-	IfNotExists: true,
-	Columns: []schema.Column{
-		schema.UUID("id").PrimaryKey().DefaultUUIDV7(),
-		schema.Int("version").NotNull().Unique(),
-		schema.Text("name").NotNull(),
-		schema.Timestamp("created_at").
-			NotNull().
-			DefaultCurrentTimestamp(),
-	},
-}
-
-func migrationsTableSQL() (string, error) {
-	return schema.Build(migrationsSchema)
-}
-
 func ensureMigrationsTable(ctx context.Context, db *sql.DB) error {
-	query, err := migrationsTableSQL()
-	if err != nil {
-		return fmt.Errorf("build migrations table: %w", err)
-	}
-	_, err = db.ExecContext(ctx, query)
-	if err != nil {
+	if err := execSQL(ctx, db, migrationsTableSQL); err != nil {
 		return fmt.Errorf("create migrations table: %w", err)
 	}
 	return nil
-}
-
-func appliedVersionsQuery() (string, []any, error) {
-	return query.Select("version").From("migrations").Build()
 }
 
 func scanVersions(rows *sql.Rows) (map[int]bool, error) {
@@ -60,12 +31,7 @@ func scanVersions(rows *sql.Rows) (map[int]bool, error) {
 }
 
 func appliedVersions(ctx context.Context, db *sql.DB) (map[int]bool, error) {
-	sql, args, err := appliedVersionsQuery()
-	if err != nil {
-		return nil, fmt.Errorf("build applied versions query: %w", err)
-	}
-
-	rows, err := db.QueryContext(ctx, sql, args...)
+	rows, err := db.QueryContext(ctx, appliedVersionsSQL)
 	if err != nil {
 		return nil, fmt.Errorf("query applied versions: %w", err)
 	}
@@ -79,15 +45,7 @@ func recordMigration(
 	tx *sql.Tx,
 	migration Migration,
 ) error {
-	sql, args, err := query.
-		Insert("migrations").
-		Columns("version", "name").
-		Values(migration.Version, migration.Name).
-		Build()
-	if err != nil {
-		return fmt.Errorf("build migration record: %w", err)
-	}
-	_, err = tx.ExecContext(ctx, sql, args...)
+	_, err := tx.ExecContext(ctx, recordMigrationSQL, migration.Version, migration.Name)
 	if err != nil {
 		return fmt.Errorf("record migration: %w", err)
 	}
@@ -115,11 +73,11 @@ func validateMigrationEntry(i int, migration Migration) error {
 	if migration.Name == "" {
 		return fmt.Errorf("migration %d: name is required", i)
 	}
-	if migration.Up == nil {
-		return fmt.Errorf("migration %d: up function is required", i)
+	if migration.Up == "" {
+		return fmt.Errorf("migration %d: up sql is required", i)
 	}
-	if migration.Down == nil {
-		return fmt.Errorf("migration %d: down function is required", i)
+	if migration.Down == "" {
+		return fmt.Errorf("migration %d: down sql is required", i)
 	}
 	return nil
 }
@@ -131,7 +89,7 @@ func runMigration(ctx context.Context, db *sql.DB, migration Migration) error {
 	}
 	defer tx.Rollback()
 
-	if err := migration.Up(ctx, tx); err != nil {
+	if err := execSQL(ctx, tx, migration.Up); err != nil {
 		return fmt.Errorf("up migration: %w", err)
 	}
 	if err := recordMigration(ctx, tx, migration); err != nil {

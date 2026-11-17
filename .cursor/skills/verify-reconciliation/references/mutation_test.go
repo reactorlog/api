@@ -2,30 +2,38 @@ package nrc
 
 import (
 	"context"
-	"github.com/DATA-DOG/go-sqlmock"
-	"regexp"
+	"strings"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
 )
 
 func TestVerificationExistingSite(t *testing.T) {
-	db, mock, err := sqlmock.New()
+	if strings.Contains(importSQL, "and false") {
+		t.Fatal("stored docket match is disabled")
+	}
+	if !strings.Contains(importSQL, "reactor.docket_number = incoming.docket_number") {
+		t.Fatal("import does not resolve a stored docket")
+	}
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer db.Close()
+	reactors := []Reactor{{
+		Name: "Arkansas Nuclear 1", UnitNumber: "1", DocketNumber: "05000313",
+		ReactorType: "PWR", SiteName: "renamed", Location: "place", State: "AR",
+	}}
 	mock.ExpectBegin()
-	tx, err := db.Begin()
-	if err != nil {
-		t.Fatal(err)
+	mock.ExpectExec(advisoryLockSQL).WillReturnResult(sqlmock.NewResult(0, 1))
+	args := importArgs(reactors)
+	mock.ExpectExec(importSQL).WithArgs(args[0], args[1], args[2], args[3], args[4], args[5], args[6]).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	count, err := store(context.Background(), db, reactors)
+	if err != nil || count != 1 {
+		t.Fatalf("count=%d err=%v", count, err)
 	}
-	mock.ExpectQuery("^" + regexp.QuoteMeta("SELECT site_id FROM reactors WHERE docket_number = $1") + "$").WithArgs("05000313").WillReturnRows(sqlmock.NewRows([]string{"site_id"}).AddRow("original-site"))
-	mock.ExpectExec("UPDATE sites").WithArgs("renamed", "place", "AR", "original-site").WillReturnResult(sqlmock.NewResult(0, 1))
-	id, err := siteFor(context.Background(), tx, Reactor{DocketNumber: "05000313", SiteName: "renamed", Location: "place", State: "AR"})
-	if err != nil || id != "original-site" {
-		t.Fatalf("site=%s err=%v", id, err)
-	}
-	mock.ExpectRollback()
-	tx.Rollback()
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
 	}

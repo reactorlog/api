@@ -1,5 +1,6 @@
 {
   "files": [
+    "internal/ingestion/nrc/sql/advisory_lock.sql",
     "internal/ingestion/nrc/store.go",
     "internal/ingestion/nrc/nrc.go"
   ],
@@ -7,11 +8,12 @@
   "property": "at most one importer holds the write section at a time",
   "harm": "overlapping site lookup and creation can race",
   "bound": "two imports, every interleaving of acquire/write/release; fetch and validation precede acquisition",
-  "old": "SELECT pg_advisory_xact_lock(72656163746)",
-  "new": "SELECT 1",
+  "old": "select pg_advisory_xact_lock(72656163746)",
+  "new": "select 1",
   "sha256": {
-    "internal/ingestion/nrc/store.go": "66e46b669baf93eb5b8423e071995e02e0a7bf40b6b6a50345a41b85839783fc",
-    "internal/ingestion/nrc/nrc.go": "ee2b12b5e03765e1c68a191c53af488f45d5d85cc38840a3bc49e38988ea22e4"
+    "internal/ingestion/nrc/sql/advisory_lock.sql": "0cfe0300d1f48b6cd2d49d979b7698383f03eb155011b8984a8efd569aa9eb1d",
+    "internal/ingestion/nrc/store.go": "10c22590cce50c7bc4fe6c681dee3461e3fe56cc9397388892b357f52917cfb1",
+    "internal/ingestion/nrc/nrc.go": "f32f03c078f48af32c3245d8b7916a5143b7d6542a40945ad1b3b27b175ce936"
   },
   "test_package": "./internal/ingestion/nrc",
   "test_name": "TestStoreCommitAndRollback"

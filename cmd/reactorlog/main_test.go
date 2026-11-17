@@ -52,7 +52,7 @@ func TestRun(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 
 	err := run(context.Background(), nil)
-	if err == nil || err.Error() != "command required: server or migrate" {
+	if err == nil || err.Error() != "command required: server, migrate, or ingest-nrc" {
 		t.Fatalf("error = %v", err)
 	}
 
@@ -68,6 +68,24 @@ func TestRun(t *testing.T) {
 
 	err = run(context.Background(), []string{"migrate"})
 	if err == nil || err.Error() != "DATABASE_URL is required" {
+		t.Fatalf("error = %v", err)
+	}
+	err = run(context.Background(), []string{"ingest-nrc"})
+	if err == nil || err.Error() != "DATABASE_URL is required" {
+		t.Fatalf("error = %v", err)
+	}
+	err = run(context.Background(), []string{"ingest-nrc", "unexpected"})
+	if err == nil || err.Error() != "usage: reactorlog ingest-nrc" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRunNRCIngestionFetchFails(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://127.0.0.1:1/reactorlog?sslmode=disable")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := runNRCIngestion(ctx)
+	if err == nil || !strings.Contains(err.Error(), "ingest NRC reference data:") {
 		t.Fatalf("error = %v", err)
 	}
 }

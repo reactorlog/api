@@ -10,8 +10,6 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 )
 
-const migrationRecordSQL = "INSERT INTO migrations (version, name) VALUES ($1, $2)"
-
 func newDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
@@ -22,33 +20,13 @@ func newDB(t *testing.T) (*sql.DB, sqlmock.Sqlmock) {
 	return db, mock
 }
 
-func noop(context.Context, *sql.Tx) error { return nil }
-
 func validMigration(version int, name string) Migration {
-	return Migration{Version: version, Name: name, Up: noop, Down: noop}
+	return Migration{Version: version, Name: name, Up: createSitesUp, Down: createSitesDown}
 }
 
-func TestMigrationsTableSQL(t *testing.T) {
-	sql, err := migrationsTableSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := "CREATE TABLE IF NOT EXISTS migrations (id UUID PRIMARY KEY DEFAULT uuidv7(), version INT NOT NULL UNIQUE, name TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)"
-	if sql != want {
-		t.Fatalf("sql = %q", sql)
-	}
-}
-
-func TestAppliedVersionsQuery(t *testing.T) {
-	sql, args, err := appliedVersionsQuery()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if sql != "SELECT version FROM migrations" {
-		t.Fatalf("sql = %q", sql)
-	}
-	if args != nil {
-		t.Fatalf("args = %#v", args)
+func expectScript(mock sqlmock.Sqlmock, script string) {
+	for _, statement := range splitSQL(script) {
+		mock.ExpectExec(statement).WillReturnResult(sqlmock.NewResult(0, 0))
 	}
 }
 
@@ -60,28 +38,28 @@ func TestValidateMigrationEntry(t *testing.T) {
 	}{
 		{
 			name:      "negative version",
-			migration: Migration{Version: -1, Name: "n", Up: noop, Down: noop},
+			migration: Migration{Version: -1, Name: "n", Up: createSitesUp, Down: createSitesDown},
 			want:      "migration 2 version must be positive",
 		},
 		{
 			name:      "zero version",
-			migration: Migration{Version: 0, Name: "n", Up: noop, Down: noop},
+			migration: Migration{Version: 0, Name: "n", Up: createSitesUp, Down: createSitesDown},
 			want:      "migration 2 version must be positive",
 		},
 		{
 			name:      "missing name",
-			migration: Migration{Version: 1, Up: noop, Down: noop},
+			migration: Migration{Version: 1, Up: createSitesUp, Down: createSitesDown},
 			want:      "migration 2: name is required",
 		},
 		{
 			name:      "missing up",
-			migration: Migration{Version: 1, Name: "n", Down: noop},
-			want:      "migration 2: up function is required",
+			migration: Migration{Version: 1, Name: "n", Down: createSitesDown},
+			want:      "migration 2: up sql is required",
 		},
 		{
 			name:      "missing down",
-			migration: Migration{Version: 1, Name: "n", Up: noop},
-			want:      "migration 2: down function is required",
+			migration: Migration{Version: 1, Name: "n", Up: createSitesUp},
+			want:      "migration 2: down sql is required",
 		},
 	}
 
@@ -131,7 +109,7 @@ func TestValidateMigrations(t *testing.T) {
 	t.Run("entry error keeps its index", func(t *testing.T) {
 		err := validateMigrations([]Migration{
 			validMigration(1, "one"),
-			{Version: 2, Up: noop, Down: noop},
+			{Version: 2, Up: createSitesUp, Down: createSitesDown},
 		})
 		if err == nil || err.Error() != "migration 1: name is required" {
 			t.Fatalf("error = %v", err)
@@ -141,11 +119,7 @@ func TestValidateMigrations(t *testing.T) {
 
 func TestEnsureMigrationsTable(t *testing.T) {
 	db, mock := newDB(t)
-	query, err := migrationsTableSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock.ExpectExec(query).WillReturnResult(sqlmock.NewResult(0, 0))
+	expectScript(mock, migrationsTableSQL)
 
 	if err := ensureMigrationsTable(context.Background(), db); err != nil {
 		t.Fatal(err)
@@ -157,13 +131,10 @@ func TestEnsureMigrationsTable(t *testing.T) {
 
 func TestEnsureMigrationsTableExecError(t *testing.T) {
 	db, mock := newDB(t)
-	query, err := migrationsTableSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock.ExpectExec(query).WillReturnError(errors.New("exec failed"))
+	statements := splitSQL(migrationsTableSQL)
+	mock.ExpectExec(statements[0]).WillReturnError(errors.New("exec failed"))
 
-	err = ensureMigrationsTable(context.Background(), db)
+	err := ensureMigrationsTable(context.Background(), db)
 	if err == nil || err.Error() != "create migrations table: exec failed" {
 		t.Fatalf("error = %v", err)
 	}
@@ -172,9 +143,9 @@ func TestEnsureMigrationsTableExecError(t *testing.T) {
 func TestScanVersions(t *testing.T) {
 	db, mock := newDB(t)
 	rows := sqlmock.NewRows([]string{"version"}).AddRow(1).AddRow(3)
-	mock.ExpectQuery("SELECT version FROM migrations").WillReturnRows(rows)
+	mock.ExpectQuery(appliedVersionsSQL).WillReturnRows(rows)
 
-	queryRows, err := db.Query("SELECT version FROM migrations")
+	queryRows, err := db.Query(appliedVersionsSQL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,9 +163,9 @@ func TestScanVersions(t *testing.T) {
 func TestScanVersionsScanError(t *testing.T) {
 	db, mock := newDB(t)
 	rows := sqlmock.NewRows([]string{"version"}).AddRow("bad")
-	mock.ExpectQuery("SELECT version FROM migrations").WillReturnRows(rows)
+	mock.ExpectQuery(appliedVersionsSQL).WillReturnRows(rows)
 
-	queryRows, err := db.Query("SELECT version FROM migrations")
+	queryRows, err := db.Query(appliedVersionsSQL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,9 +180,9 @@ func TestScanVersionsScanError(t *testing.T) {
 func TestScanVersionsRowsError(t *testing.T) {
 	db, mock := newDB(t)
 	rows := sqlmock.NewRows([]string{"version"}).AddRow(1).RowError(0, errors.New("next failed"))
-	mock.ExpectQuery("SELECT version FROM migrations").WillReturnRows(rows)
+	mock.ExpectQuery(appliedVersionsSQL).WillReturnRows(rows)
 
-	queryRows, err := db.Query("SELECT version FROM migrations")
+	queryRows, err := db.Query(appliedVersionsSQL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,7 +197,7 @@ func TestScanVersionsRowsError(t *testing.T) {
 func TestAppliedVersions(t *testing.T) {
 	db, mock := newDB(t)
 	rows := sqlmock.NewRows([]string{"version"}).AddRow(1)
-	mock.ExpectQuery("SELECT version FROM migrations").WillReturnRows(rows)
+	mock.ExpectQuery(appliedVersionsSQL).WillReturnRows(rows)
 
 	versions, err := appliedVersions(context.Background(), db)
 	if err != nil {
@@ -242,7 +213,7 @@ func TestAppliedVersions(t *testing.T) {
 
 func TestAppliedVersionsQueryError(t *testing.T) {
 	db, mock := newDB(t)
-	mock.ExpectQuery("SELECT version FROM migrations").WillReturnError(errors.New("query failed"))
+	mock.ExpectQuery(appliedVersionsSQL).WillReturnError(errors.New("query failed"))
 
 	_, err := appliedVersions(context.Background(), db)
 	if err == nil || err.Error() != "query applied versions: query failed" {
@@ -253,7 +224,7 @@ func TestAppliedVersionsQueryError(t *testing.T) {
 func TestRecordMigration(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	mock.ExpectExec(migrationRecordSQL).
+	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "create_sites").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectRollback()
@@ -277,7 +248,7 @@ func TestRecordMigration(t *testing.T) {
 func TestRecordMigrationExecError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	mock.ExpectExec(migrationRecordSQL).
+	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "create_sites").
 		WillReturnError(errors.New("exec failed"))
 	mock.ExpectRollback()
@@ -298,22 +269,14 @@ func TestRecordMigrationExecError(t *testing.T) {
 func TestRunMigration(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	mock.ExpectExec(migrationRecordSQL).
+	expectScript(mock, createSitesUp)
+	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "test").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 
-	called := false
-	migration := validMigration(1, "test")
-	migration.Up = func(context.Context, *sql.Tx) error {
-		called = true
-		return nil
-	}
-	if err := runMigration(context.Background(), db, migration); err != nil {
+	if err := runMigration(context.Background(), db, validMigration(1, "test")); err != nil {
 		t.Fatal(err)
-	}
-	if !called {
-		t.Fatal("up not called")
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
@@ -333,13 +296,10 @@ func TestRunMigrationBeginError(t *testing.T) {
 func TestRunMigrationUpError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
+	mock.ExpectExec(splitSQL(createSitesUp)[0]).WillReturnError(errors.New("up failed"))
 	mock.ExpectRollback()
 
-	migration := validMigration(1, "test")
-	migration.Up = func(context.Context, *sql.Tx) error {
-		return errors.New("up failed")
-	}
-	err := runMigration(context.Background(), db, migration)
+	err := runMigration(context.Background(), db, validMigration(1, "test"))
 	if err == nil || err.Error() != "up migration: up failed" {
 		t.Fatalf("error = %v", err)
 	}
@@ -351,7 +311,8 @@ func TestRunMigrationUpError(t *testing.T) {
 func TestRunMigrationRecordError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	mock.ExpectExec(migrationRecordSQL).
+	expectScript(mock, createSitesUp)
+	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "test").
 		WillReturnError(errors.New("exec failed"))
 	mock.ExpectRollback()
@@ -368,7 +329,8 @@ func TestRunMigrationRecordError(t *testing.T) {
 func TestRunMigrationCommitError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	mock.ExpectExec(migrationRecordSQL).
+	expectScript(mock, createSitesUp)
+	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "test").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
@@ -385,31 +347,20 @@ func TestRunMigrationCommitError(t *testing.T) {
 func TestApplyPending(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
-	mock.ExpectExec(migrationRecordSQL).
+	expectScript(mock, createReactorsUp)
+	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(2, "two").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 
-	ran := []int{}
 	migrations := []Migration{
 		validMigration(1, "one"),
-		validMigration(2, "two"),
-	}
-	migrations[0].Up = func(context.Context, *sql.Tx) error {
-		ran = append(ran, 1)
-		return nil
-	}
-	migrations[1].Up = func(context.Context, *sql.Tx) error {
-		ran = append(ran, 2)
-		return nil
+		{Version: 2, Name: "two", Up: createReactorsUp, Down: createReactorsDown},
 	}
 
 	results, err := applyPending(context.Background(), db, migrations, map[int]bool{1: true})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if len(ran) != 1 || ran[0] != 2 {
-		t.Fatalf("ran = %#v", ran)
 	}
 	if len(results) != 2 {
 		t.Fatalf("results = %#v", results)
@@ -439,31 +390,19 @@ func TestApplyPendingError(t *testing.T) {
 
 func TestRun(t *testing.T) {
 	db, mock := newDB(t)
-	createSQL, err := migrationsTableSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock.ExpectExec(createSQL).WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT version FROM migrations").
+	expectScript(mock, migrationsTableSQL)
+	mock.ExpectQuery(appliedVersionsSQL).
 		WillReturnRows(sqlmock.NewRows([]string{"version"}))
 	mock.ExpectBegin()
-	mock.ExpectExec(migrationRecordSQL).
+	expectScript(mock, createSitesUp)
+	mock.ExpectExec(recordMigrationSQL).
 		WithArgs(1, "one").
 		WillReturnResult(sqlmock.NewResult(0, 0))
 	mock.ExpectCommit()
 
-	ran := false
-	migration := validMigration(1, "one")
-	migration.Up = func(context.Context, *sql.Tx) error {
-		ran = true
-		return nil
-	}
-	results, err := Run(context.Background(), db, []Migration{migration})
+	results, err := Run(context.Background(), db, []Migration{validMigration(1, "one")})
 	if err != nil {
 		t.Fatal(err)
-	}
-	if !ran {
-		t.Fatal("migration not run")
 	}
 	if len(results) != 1 || results[0].Version != 1 || results[0].Name != "one" || !results[0].Applied {
 		t.Fatalf("results = %#v", results)
@@ -483,13 +422,9 @@ func TestRunValidateError(t *testing.T) {
 
 func TestRunEnsureError(t *testing.T) {
 	db, mock := newDB(t)
-	createSQL, err := migrationsTableSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock.ExpectExec(createSQL).WillReturnError(errors.New("exec failed"))
+	mock.ExpectExec(splitSQL(migrationsTableSQL)[0]).WillReturnError(errors.New("exec failed"))
 
-	_, err = Run(context.Background(), db, nil)
+	_, err := Run(context.Background(), db, nil)
 	if err == nil || err.Error() != "ensure migrations table: create migrations table: exec failed" {
 		t.Fatalf("error = %v", err)
 	}
@@ -497,15 +432,37 @@ func TestRunEnsureError(t *testing.T) {
 
 func TestRunAppliedVersionsError(t *testing.T) {
 	db, mock := newDB(t)
-	createSQL, err := migrationsTableSQL()
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock.ExpectExec(createSQL).WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectQuery("SELECT version FROM migrations").WillReturnError(errors.New("query failed"))
+	expectScript(mock, migrationsTableSQL)
+	mock.ExpectQuery(appliedVersionsSQL).WillReturnError(errors.New("query failed"))
 
-	_, err = Run(context.Background(), db, nil)
+	_, err := Run(context.Background(), db, nil)
 	if err == nil || err.Error() != "query applied versions: query failed" {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestSplitSQL(t *testing.T) {
+	cases := []struct {
+		script string
+		want   []string
+	}{
+		{script: "select 1; select 2;", want: []string{"select 1", "select 2"}},
+		{script: "select ';'", want: []string{"select ';'"}},
+		{script: "select 'it''s';", want: []string{"select 'it''s'"}},
+		{script: "  ; select 1", want: []string{"select 1"}},
+		{script: "a'", want: []string{"a'"}},
+		{script: "a''", want: []string{"a''"}},
+		{script: "", want: nil},
+	}
+	for _, tc := range cases {
+		got := splitSQL(tc.script)
+		if len(got) != len(tc.want) {
+			t.Fatalf("split %q = %#v", tc.script, got)
+		}
+		for i := range got {
+			if got[i] != tc.want[i] {
+				t.Fatalf("split %q = %#v", tc.script, got)
+			}
+		}
 	}
 }

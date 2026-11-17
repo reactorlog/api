@@ -9,7 +9,7 @@
   "old": "fmt.Fprintln(os.Stderr, err)\n\t\treturn 1",
   "new": "fmt.Fprintln(os.Stderr, err)\n\t\treturn 0",
   "sha256": {
-    "cmd/reactorlog/main.go": "eeca186d0fca8e7abc6902be9f91a4fc67f0de1c7c7f0caa4ff199b4b7cdc93a"
+    "cmd/reactorlog/main.go": "fdf97f7f6c8e58837c2bd54c94d37a240a4b2d14c982e3bd13798ed4a132ea6b"
   },
   "test_package": "./cmd/reactorlog",
   "test_name": "TestExitCode"

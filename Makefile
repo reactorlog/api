@@ -13,6 +13,9 @@ migrate:
 db:
 	docker compose exec postgres psql -U reactorlog -d reactorlog
 
+ingest-nrc:
+	go run ./cmd/reactorlog ingest-nrc
+
 test:
 	@set -a; \
 	. ./.env; \
