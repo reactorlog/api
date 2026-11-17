@@ -18,6 +18,12 @@
         "matcher": "git commit",
         "timeout": 60,
         "failClosed": true
+      },
+      {
+        "command": ".cursor/hooks/sql-case-before-commit.sh",
+        "matcher": "git commit",
+        "timeout": 60,
+        "failClosed": true
       }
     ]
   }

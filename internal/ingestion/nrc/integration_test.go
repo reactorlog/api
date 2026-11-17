@@ -27,12 +27,12 @@ func testDatabase(t *testing.T) *sql.DB {
 	}
 	admin := sql.OpenDB(stdlib.GetConnector(*config))
 	schema := fmt.Sprintf("nrc_import_test_%d", time.Now().UnixNano())
-	if _, err := admin.ExecContext(ctx, "CREATE SCHEMA "+schema); err != nil {
+	if _, err := admin.ExecContext(ctx, "create schema "+schema); err != nil {
 		admin.Close()
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if _, err := admin.ExecContext(ctx, "DROP SCHEMA "+schema+" CASCADE"); err != nil {
+		if _, err := admin.ExecContext(ctx, "drop schema "+schema+" cascade"); err != nil {
 			t.Error(err)
 		}
 		admin.Close()
@@ -64,17 +64,17 @@ func TestReferenceImportDatabase(t *testing.T) {
 		keys[[2]string{r.SiteName, r.Location}] = true
 	}
 	expectedSites = len(keys)
-	if err := db.QueryRow("SELECT count(*) FROM reactors").Scan(&count); err != nil || count != 95 {
+	if err := db.QueryRow("select count(*) from reactors").Scan(&count); err != nil || count != 95 {
 		t.Fatalf("reactors=%d, error=%v", count, err)
 	}
-	if err := db.QueryRow("SELECT count(*) FROM sites").Scan(&sites); err != nil || sites != expectedSites {
+	if err := db.QueryRow("select count(*) from sites").Scan(&sites); err != nil || sites != expectedSites {
 		t.Fatalf("sites=%d, want=%d, error=%v", sites, expectedSites, err)
 	}
 	var id string
-	if err := db.QueryRow("SELECT id FROM reactors WHERE docket_number = '05000313'").Scan(&id); err != nil {
+	if err := db.QueryRow("select id from reactors where docket_number = '05000313'").Scan(&id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec("UPDATE reactors SET design = 'existing design' WHERE id = $1", id); err != nil {
+	if _, err := db.Exec("update reactors set design = 'existing design' where id = $1", id); err != nil {
 		t.Fatal(err)
 	}
 	// A changed source name updates the existing reactor without losing its ID or enrichment.
@@ -83,7 +83,7 @@ func TestReferenceImportDatabase(t *testing.T) {
 		t.Fatal(err)
 	}
 	var name, design string
-	if err := db.QueryRow("SELECT name, design FROM reactors WHERE id = $1", id).Scan(&name, &design); err != nil {
+	if err := db.QueryRow("select name, design from reactors where id = $1", id).Scan(&name, &design); err != nil {
 		t.Fatal(err)
 	}
 	if name != records[0].Name || design != "existing design" {
@@ -96,7 +96,7 @@ func TestReferenceImportDatabase(t *testing.T) {
 	if _, err := store(ctx, db, records[:1]); err == nil {
 		t.Fatal("expected site identity conflict")
 	}
-	if err := db.QueryRow("SELECT name FROM reactors WHERE id = $1", id).Scan(&name); err != nil {
+	if err := db.QueryRow("select name from reactors where id = $1", id).Scan(&name); err != nil {
 		t.Fatal(err)
 	}
 	if name == "Should roll back" {

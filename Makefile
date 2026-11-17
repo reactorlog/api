@@ -22,10 +22,14 @@ test:
 	set +a; \
 	go test -count=1 ./...
 
+lint-sql:
+	@python3 .cursor/scripts/sql-keyword-case.py
+
+
 test-db:
 	@docker compose exec -T postgres \
 		psql -U reactorlog -d postgres -tAc \
-		"SELECT 1 FROM pg_database WHERE datname = 'reactorlog_test'" \
+		"select 1 from pg_database where datname = 'reactorlog_test'" \
 		| grep -q 1 || \
 	docker compose exec -T postgres \
 		createdb -U reactorlog reactorlog_test
