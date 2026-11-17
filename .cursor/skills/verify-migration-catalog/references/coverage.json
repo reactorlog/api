@@ -1,0 +1,16 @@
+{
+  "files": [
+    "migrations/runner.go"
+  ],
+  "functions": "Run, applyPending, runMigration",
+  "property": "Run applies each missing catalog version by calling Up, never Down, and Result.Applied is true only for versions this call executed",
+  "harm": "Down runs against partial NRC rows, or a skipped version is reported as applied by this call",
+  "bound": "catalog versions 1 and 2, every subset already applied, one successful pass",
+  "old": "if err := execSQL(ctx, tx, migration.Up); err != nil {",
+  "new": "if err := execSQL(ctx, tx, migration.Down); err != nil {",
+  "sha256": {
+    "migrations/runner.go": "ebdf61f4fa448d1deeb639f3bb1e7e08a7a23c70fd4a9c381ab0978f054d5bc2"
+  },
+  "test_package": "./migrations",
+  "test_name": "TestVerificationMigrationDirection"
+}

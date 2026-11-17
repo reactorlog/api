@@ -353,6 +353,10 @@ def discover(root: Path) -> Catalog:
 
 
 def covers(skill: Skill, path: str) -> bool:
+    # Fingerprint and other JSON metadata are not state-machine source.
+    # Editing coverage.json must not require re-running the mutation check.
+    if path.endswith(".json"):
+        return False
     if path in skill.files:
         return True
     return path == skill.tree or path.startswith(skill.tree + "/")
@@ -1178,7 +1182,10 @@ def self_test() -> int:
         git_cmd(repo, ["add", ".cursor/skills/verify-alpha/references/coverage.json"])
         decision = invoke("git commit -m x", [repo], neutral)
         expect(decision.get("permission") == "allow", decision)
-        expect(marker(repo, "verify-alpha").exists(), "coverage edit did not re-run the check")
+        expect(
+            not marker(repo, "verify-alpha").exists(),
+            "coverage json edit ran the check",
+        )
 
         repo = build(parent, "broken", alpha)
         coverage = repo / ".cursor" / "skills" / "verify-alpha" / "references" / "coverage.json"
