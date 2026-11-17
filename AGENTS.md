@@ -10,3 +10,4 @@ and tests together when an API changes.
 | Rule | Enforcement |
 | --- | --- |
 | SQL keywords are lowercase (`select`, not `SELECT`) in `.sql` files and in SQL string literals in `.go` files | `python3 .cursor/scripts/sql-keyword-case.py`; commit hook `.cursor/hooks/sql-case-before-commit.sh` |
+| Formal verification runs when covered implementation sources change, not when `.json` fingerprint/metadata files change | `.cursor/scripts/verify-commit-gate.py` (`covers` ignores `*.json`) |
