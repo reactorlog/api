@@ -1,0 +1,18 @@
+{
+  "files": [
+    "internal/api/handler.go",
+    "internal/api/store.go"
+  ],
+  "functions": "NewMux, health, listSites, getSite, listReactors, SiteByID",
+  "property": "response status follows the route and the store outcome. a miss is not 200. a store failure is not 200. a hit is 200",
+  "harm": "clients treat a missing or failed read as a successful payload",
+  "bound": "GET /health, /sites, and /reactors crossed with ok and error. GET /sites/{id} crossed with hit, miss, and error. one unmatched path. one wrong method",
+  "old": "writeError(w, http.StatusNotFound)",
+  "new": "writeJSON(w, http.StatusOK, detail)",
+  "sha256": {
+    "internal/api/handler.go": "6528645131b437c5d2850823f166c9e2505eb857e228c978fcf69dd8a35d5b39",
+    "internal/api/store.go": "1487aa4981ccc9a40705590c1861923a9f59d0a62e72f93bef786e1598e8af4a"
+  },
+  "test_package": "./internal/api",
+  "test_name": "TestHandlerStatusMapping"
+}
