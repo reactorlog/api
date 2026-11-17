@@ -2,7 +2,7 @@
 
 a go/postgres project for exploring public nuclear-reactor data: where reactors are, how they are designed, and what happens during operation.
 
-**status:** early development. the repository implements the database, migrations, and the NRC operating-reactor import. scram events and http endpoints are planned. the `server` command currently verifies a database connection and exits.
+**status:** early development. the repository implements the database, migrations, the NRC operating-reactor import, and a read-only HTTP API for sites and reactors. scram events are planned.
 
 ## implemented
 
@@ -39,6 +39,13 @@ make run
 ```
 
 open a database shell with `make db`. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, and `go run ./cmd/reactorlog server`; it loads `.env` on startup.
+
+`server` listens on `HTTP_ADDR` (default `:8080`) and serves:
+
+- `GET /health`
+- `GET /sites`
+- `GET /sites/{id}`
+- `GET /reactors`
 
 ## NRC reference data
 
@@ -108,10 +115,11 @@ inconclusive comparison as inconclusive.
 | path | responsibility |
 | --- | --- |
 | `cmd/reactorlog` | cli commands and startup |
+| `internal/api` | read-only HTTP handlers and embedded SQL |
 | `internal/database` | postgres connection pool |
 | `internal/ingestion/nrc` | NRC list parsing and the import statement |
 | `migrations` | sql files, version tracking, and the transactional migration runner |
 
 ## next
 
-add reactor-linked scram events and expose the data through an http api. the goal is a searchable dataset and map with traceable source records.
+add reactor-linked scram events and a hosted frontend over the plant-list API.
