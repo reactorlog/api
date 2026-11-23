@@ -62,9 +62,9 @@ func resetTestDatabase(
 	t.Helper()
 
 	_, err := db.ExecContext(ctx, `
-		DROP TABLE IF EXISTS reactors CASCADE;
-		DROP TABLE IF EXISTS migrations CASCADE;
-		DROP TABLE IF EXISTS sites CASCADE;
+		drop table if exists reactors cascade;
+		drop table if exists migrations cascade;
+		drop table if exists sites cascade;
 	`)
 	if err != nil {
 		t.Fatal(err)
@@ -84,11 +84,11 @@ func assertTableExists(
 	err := db.QueryRowContext(
 		ctx,
 		`
-		SELECT EXISTS (
-			SELECT 1
-			FROM information_schema.tables
-			WHERE table_schema = 'public'
-			  AND table_name = $1
+		select exists (
+			select 1
+			from information_schema.tables
+			where table_schema = 'public'
+			  and table_name = $1
 		)
 		`,
 		table,
@@ -114,7 +114,7 @@ func assertMigrationCount(
 
 	err := db.QueryRowContext(
 		ctx,
-		"SELECT COUNT(*) FROM migrations",
+		"select count(*) from migrations",
 	).Scan(&count)
 	if err != nil {
 		t.Fatal(err)

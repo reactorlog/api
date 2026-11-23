@@ -88,6 +88,21 @@ func TestFetchURL(t *testing.T) {
 		}
 	})
 
+	t.Run("user agent", func(t *testing.T) {
+		var userAgent string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userAgent = r.Header.Get("User-Agent")
+			w.WriteHeader(http.StatusTeapot)
+		}))
+		defer server.Close()
+		if _, err := fetchURL(context.Background(), server.URL); err == nil || !strings.Contains(err.Error(), "HTTP 418") {
+			t.Fatal(err)
+		}
+		if userAgent != "Go-http-client/1.1" {
+			t.Fatalf("User-Agent = %q", userAgent)
+		}
+	})
+
 	t.Run("cancelled", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 		defer server.Close()

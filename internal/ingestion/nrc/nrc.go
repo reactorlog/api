@@ -199,7 +199,6 @@ func fetchURL(ctx context.Context, pageURL string) ([]Reactor, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Reactorlog/1.0 (NRC reference data ingestion)")
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
