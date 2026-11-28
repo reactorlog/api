@@ -14,6 +14,7 @@
 # Code coverage profiles and other test artifacts
 *.out
 coverage.*
+!.cursor/skills/**/references/coverage.json
 *.coverprofile
 profile.cov
 
@@ -33,3 +34,7 @@ go.work.sum
 
 # Local benchmark measurements and profiles
 /.benchmarks/
+.worktrees
+
+# Visual brainstorm companion sessions
+.superpowers/

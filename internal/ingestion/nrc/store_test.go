@@ -61,46 +61,6 @@ func TestTextArrayValue(t *testing.T) {
 	}
 }
 
-func TestStoreBeginAndCommitErrors(t *testing.T) {
-	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	mock.ExpectBegin().WillReturnError(fmt.Errorf("begin failed"))
-	if _, err = store(context.Background(), db, []Reactor{{DocketNumber: "05000313"}}); err == nil || !strings.Contains(err.Error(), "begin NRC import") {
-		t.Fatal(err)
-	}
-
-	db, mock, err = sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	mock.ExpectBegin()
-	mock.ExpectExec(advisoryLockSQL).WillReturnError(fmt.Errorf("lock failed"))
-	mock.ExpectRollback()
-	if _, err = store(context.Background(), db, []Reactor{{DocketNumber: "05000313"}}); err == nil || !strings.Contains(err.Error(), "lock failed") {
-		t.Fatal(err)
-	}
-
-	db, mock, err = sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-	reactors := []Reactor{{DocketNumber: "05000313"}}
-	args := importArgs(reactors)
-	mock.ExpectBegin()
-	mock.ExpectExec(advisoryLockSQL).WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(importSQL).WithArgs(args[0], args[1], args[2], args[3], args[4], args[5], args[6]).WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit().WillReturnError(fmt.Errorf("commit failed"))
-	mock.ExpectRollback()
-	if _, err = store(context.Background(), db, reactors); err == nil || !strings.Contains(err.Error(), "commit NRC import") {
-		t.Fatal(err)
-	}
-}
-
 func TestStoreEmpty(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

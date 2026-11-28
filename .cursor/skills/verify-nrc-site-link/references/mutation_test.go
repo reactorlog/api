@@ -10,10 +10,13 @@ import (
 
 func TestVerificationNewDocketJoinsSite(t *testing.T) {
 	if strings.Contains(importSQL, "and false") {
-		t.Fatal("name and location match is disabled")
+		t.Fatal("name match is disabled")
 	}
-	if !strings.Contains(importSQL, "occupied.name = incoming.site_name") || !strings.Contains(importSQL, "occupied.location = incoming.location") {
-		t.Fatal("import does not match a site by name and location")
+	if !strings.Contains(importSQL, "occupied.name = incoming.site_name") {
+		t.Fatal("import does not match a site by name")
+	}
+	if strings.Contains(importSQL, "occupied.location = incoming.location") {
+		t.Fatal("import still matches a site by location")
 	}
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	if err != nil {

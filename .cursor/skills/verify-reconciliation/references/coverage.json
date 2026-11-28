@@ -1,17 +1,17 @@
 {
   "files": [
     "internal/ingestion/nrc/sql/import.sql",
-    "migrations/sql/1_create_sites.up.sql"
+    "migrations/sql/1_create_sites_and_reactors.up.sql"
   ],
-  "functions": "store; import.sql; sites_name_location index",
+  "functions": "store; import.sql; sites_name_key index",
   "property": "resolving an existing docket returns its stored site identity",
   "harm": "metadata can be written to a different site from the reactor\u2019s stored site",
   "bound": "two sites, one known docket, matching and nonmatching source identities",
   "old": "on reactor.docket_number = incoming.docket_number",
   "new": "on reactor.docket_number = incoming.docket_number and false",
   "sha256": {
-    "internal/ingestion/nrc/sql/import.sql": "725905d9f2e121b06793978fec54cdcf36e4338a52789ec51125be9d55682efd",
-    "migrations/sql/1_create_sites.up.sql": "b1696f610f6ad9b85ba21e3fec53529e127c58f8e3d800d1c672541086dc7d4d"
+    "internal/ingestion/nrc/sql/import.sql": "08562abe79562c2da757095da77c31e04f966530ab19055fc5ae86306f00b93c",
+    "migrations/sql/1_create_sites_and_reactors.up.sql": "3adfcf4a29d812291fa37ba382e80f93d7481722781f27e187c018c0b7d2ae38"
   },
   "test_package": "./internal/ingestion/nrc",
   "test_name": "TestVerificationExistingSite"

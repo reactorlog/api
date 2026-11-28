@@ -1,6 +1,6 @@
 -- Stored sites are renamed before new sites are inserted, so list order does not
 -- change which site a docket joins. Rows whose stored values already match are
--- left in place.
+-- left in place. Site identity is name; location and state are attributes.
 with incoming as (
     select distinct on (docket_number)
         name,
@@ -56,13 +56,13 @@ renamed as (
           site_target.location,
           site_target.state
       )
-    returning site.id, site.name, site.location
+    returning site.id, site.name
 ),
 occupied as (
-    select renamed.id, renamed.name, renamed.location
+    select renamed.id, renamed.name
     from renamed
     union all
-    select site.id, site.name, site.location
+    select site.id, site.name
     from sites as site
     where not exists (
         select 1
@@ -72,7 +72,7 @@ occupied as (
 ),
 created as (
     insert into sites (name, location, state)
-    select distinct on (incoming.site_name, incoming.location)
+    select distinct on (incoming.site_name)
         incoming.site_name,
         incoming.location,
         incoming.state
@@ -86,10 +86,9 @@ created as (
         select 1
         from occupied
         where occupied.name = incoming.site_name
-          and occupied.location = incoming.location
     )
-    order by incoming.site_name, incoming.location, incoming.ordinality
-    returning id, name, location
+    order by incoming.site_name, incoming.ordinality
+    returning id, name
 )
 insert into reactors (site_id, name, unit_number, docket_number, reactor_type)
 select
@@ -104,12 +103,10 @@ left join reactors as reactor
 left join created
     on reactor.site_id is null
    and created.name = incoming.site_name
-   and created.location = incoming.location
 left join occupied
     on reactor.site_id is null
    and created.id is null
    and occupied.name = incoming.site_name
-   and occupied.location = incoming.location
 on conflict (docket_number) do update
 set
     name = excluded.name,

@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +29,7 @@ func TestExitCode(t *testing.T) {
 		if strings.Contains(stderr, "load .env") {
 			t.Fatalf("stderr = %q", stderr)
 		}
-		if !strings.Contains(stderr, "command required: server, migrate, or ingest-nrc") {
+		if !strings.Contains(stderr, "command required: server, migrate, ingest-nrc, or ingest-eia-plants") {
 			t.Fatalf("stderr = %q", stderr)
 		}
 	})
@@ -103,7 +106,7 @@ func TestRun(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 
 	err := run(context.Background(), nil)
-	if err == nil || err.Error() != "command required: server, migrate, or ingest-nrc" {
+	if err == nil || err.Error() != "command required: server, migrate, ingest-nrc, or ingest-eia-plants" {
 		t.Fatalf("error = %v", err)
 	}
 
@@ -127,6 +130,32 @@ func TestRun(t *testing.T) {
 	}
 	err = run(context.Background(), []string{"ingest-nrc", "unexpected"})
 	if err == nil || err.Error() != "usage: reactorlog ingest-nrc" {
+		t.Fatalf("error = %v", err)
+	}
+	err = run(context.Background(), []string{"ingest-eia-plants", "unexpected"})
+	if err == nil || err.Error() != "usage: reactorlog ingest-eia-plants" {
+		t.Fatalf("error = %v", err)
+	}
+	err = run(context.Background(), []string{"ingest-eia-plants"})
+	if err == nil || err.Error() != "DATABASE_URL is required" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRunEIAPlantIngestionRequiresDatabaseURL(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	err := runEIAPlantIngestion(context.Background())
+	if err == nil || err.Error() != "DATABASE_URL is required" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRunEIAPlantIngestionFetchFails(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://127.0.0.1:1/reactorlog?sslmode=disable")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := runEIAPlantIngestion(ctx)
+	if err == nil || !strings.Contains(err.Error(), "ingest EIA plant data:") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -160,6 +189,54 @@ func TestRunServer(t *testing.T) {
 			t.Fatal("expected connect error")
 		}
 	})
+}
+
+func TestHTTPAddr(t *testing.T) {
+	t.Setenv("HTTP_ADDR", "")
+	if got := httpAddr(); got != ":8080" {
+		t.Fatalf("default addr = %q", got)
+	}
+	t.Setenv("HTTP_ADDR", ":9090")
+	if got := httpAddr(); got != ":9090" {
+		t.Fatalf("addr = %q", got)
+	}
+}
+
+func TestNormalizeServeErr(t *testing.T) {
+	if err := normalizeServeErr(nil); err != nil {
+		t.Fatalf("nil = %v", err)
+	}
+	if err := normalizeServeErr(http.ErrServerClosed); err != nil {
+		t.Fatalf("closed = %v", err)
+	}
+	want := errors.New("boom")
+	if err := normalizeServeErr(want); !errors.Is(err, want) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestWaitAndShutdownHTTP(t *testing.T) {
+	server := &http.Server{Addr: "127.0.0.1:0"}
+	listener, err := net.Listen("tcp", server.Addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.Addr = listener.Addr().String()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- server.Serve(listener) }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := waitHTTP(ctx, server, errCh); err != nil {
+		t.Fatalf("shutdown path: %v", err)
+	}
+
+	errCh = make(chan error, 1)
+	errCh <- errors.New("listen failed")
+	if err := waitHTTP(context.Background(), &http.Server{}, errCh); err == nil {
+		t.Fatal("expected listen error")
+	}
 }
 
 func TestRunMigrations(t *testing.T) {

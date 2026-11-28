@@ -1,11 +1,11 @@
 ---- MODULE NrcSiteLink ----
 \* One NRC import statement.
 \* Stored dockets rename their linked site before any new site is inserted.
-\* A new docket then joins the site with its name and location, or creates one.
+\* A new docket then joins the site with its name, or creates one.
 \* List order does not change the result: a new docket listed before a rename
 \* still joins the renamed site.
-\* Name and location are one key. sites_name_location rejects a second site
-\* with that pair. Two stored sites renamed onto one key roll back.
+\* Site name is the identity key. sites_name_key rejects a second site with
+\* that name. Two stored sites renamed onto one name roll back.
 \* The reactor upsert keeps an existing site_id and does not write design.
 \* A unique failure aborts the statement; the transaction rolls back.
 
@@ -82,8 +82,8 @@ Range(seq) == {seq[i] : i \in DOMAIN seq}
 Stored(database, rows) ==
   {row \in Range(rows) : database.reactors[row.docket].present}
 
-\* A stored site would take a name and location another site already has,
-\* or two stored sites would take the same name and location.
+\* A stored site would take a name another site already has,
+\* or two stored sites would take the same name.
 RenameConflict(database, rows) ==
   \/ \E row \in Stored(database, rows) :
        \E other \in SiteWith(database, row.identity) :
@@ -102,7 +102,7 @@ AfterRename(database, rows) ==
       ELSE database.sites[s]]]
 
 \* Place new dockets against the renamed sites. Broken skips the name match,
-\* so a taken key tries to insert a second site and the statement fails.
+\* so a taken name tries to insert a second site and the statement fails.
 RECURSIVE Place(_, _, _)
 Place(database, rows, i) ==
   IF i > Len(rows) THEN [ok |-> TRUE, db |-> database]

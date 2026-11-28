@@ -17,7 +17,10 @@ type Migration struct {
 }
 
 var All = []Migration{
-	{Version: 1, Name: "create_sites", Up: createSitesUp, Down: createSitesDown},
-	{Version: 2, Name: "create_reactors", Up: createReactorsUp, Down: createReactorsDown},
-	{Version: 3, Name: "nrc_reference_data", Up: nrcReferenceDataUp, Down: nrcReferenceDataDown},
+	{
+		Version: 1,
+		Name:    "create_sites_and_reactors",
+		Up:      createSitesAndReactorsUp,
+		Down:    createSitesAndReactorsDown,
+	},
 }

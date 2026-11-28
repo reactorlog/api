@@ -11,7 +11,7 @@
   "new": "/* pool close removed */",
   "sha256": {
     "internal/database/database.go": "684fd8f8b8e252e2aa27c415d447d06b093d0c8fb1583cdd9226c56258b2b408",
-    "cmd/reactorlog/server.go": "6aff05c094d55516f26ceec5993818322b124ae6c17042c3a792d0c7bac0b52e"
+    "cmd/reactorlog/server.go": "19d5450642e7fa8d28e5b598ba2b59d2cc2565af50139ee88f9360f150132b16"
   },
   "test_package": "./internal/database",
   "test_name": "TestVerificationPoolClosed"

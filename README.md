@@ -2,7 +2,7 @@
 
 a go/postgres project for exploring public nuclear-reactor data: where reactors are, how they are designed, and what happens during operation.
 
-**status:** early development. the repository implements the database, migrations, and the NRC operating-reactor import. scram events and http endpoints are planned. the `server` command currently verifies a database connection and exits.
+**status:** early development. the repository implements the database, migrations, the NRC operating-reactor import, and a read-only HTTP API for sites and reactors. scram events are planned.
 
 ## implemented
 
@@ -40,7 +40,14 @@ make ingest-nrc
 make run
 ```
 
-open a database shell with `make db`. `make` and the cli load `.env` when the file is present. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, and `go run ./cmd/reactorlog server`. `server`, `migrate`, and `ingest-nrc` still require `DATABASE_URL`.
+open a database shell with `make db`. `make` and the cli load `.env` when the file is present. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, `go run ./cmd/reactorlog ingest-eia-plants`, and `go run ./cmd/reactorlog server`. `server`, `migrate`, `ingest-nrc`, and `ingest-eia-plants` still require `DATABASE_URL`.
+
+`server` listens on `HTTP_ADDR` (default `:8080`) and serves:
+
+- `GET /health`
+- `GET /sites`
+- `GET /sites/{id}`
+- `GET /reactors`
 
 ## NRC reference data
 
@@ -49,26 +56,34 @@ This covers the units in that list, rather than retired, proposed, or research r
 It imports reactor names, unit numbers, eight-digit docket numbers (including leading
 zeros), reactor types, site names, locations, and state abbreviations. An unnumbered
 unit in this list is represented as unit 1. Site names are the unit names with the
-trailing unit number removed. A site is one name at one location. Two units at the
-same place share that site. This identifies named facilities, not shared physical
-campuses that the list gives different names.
+trailing unit number removed. A site is identified by its name. Two units that
+share a site name share that site. Location is descriptive text from the list.
+Named facilities stay separate when they share a location string, such as two
+plants near Oswego.
 
 Reactors match by docket number. A stored reactor keeps its site, and that site's
 name, location, and state are updated from the list. A new reactor joins the site
-with the same name and location, or a site is created. Giving one site another
-site's name and location fails the transaction rather than merging the two sites.
+with the same name, or a site is created. Giving one site another site's name
+fails the transaction rather than merging the two sites.
 
 All rows are validated before database writes. Each run is transactional, concurrent
 imports are serialized, and repeated imports update existing records. Units absent
 from a later list are retained. The list does not provide timezone, design,
-coordinates, EIA codes, or contact details; these remain NULL on new records and
-are preserved on existing records. No timezone is inferred from state.
-
-Migration 3 makes timezone and design nullable. Its rollback requires filling any NULL
-timezone and design values first.
+coordinates, EIA codes, or contact details. The initial schema leaves timezone and
+design nullable so those fields stay NULL on new records and are preserved on
+existing records. No timezone is inferred from state.
 
 The parser fixture is the NRC unit table retrieved on November 5, 2026. It is
 used to detect markup changes without network-dependent tests.
+
+## EIA plant enrichment
+
+`ingest-eia-plants` downloads Form EIA-860, keeps operable nuclear plants, and
+writes `eia_plant_code`, address fields, and coordinates onto existing sites.
+Matching uses exact names, then deterministic soft tokens (strip station
+suffixes and operator prefixes), then a small checked-in alias map. Every site
+must match or the command fails. Extra EIA plants are logged and skipped.
+Run it after `ingest-nrc`.
 
 ## tests
 
@@ -111,10 +126,12 @@ inconclusive comparison as inconclusive.
 | path | responsibility |
 | --- | --- |
 | `cmd/reactorlog` | cli commands and startup |
+| `internal/api` | read-only HTTP handlers and embedded SQL |
 | `internal/database` | postgres connection pool |
 | `internal/ingestion/nrc` | NRC list parsing and the import statement |
+| `internal/ingestion/eia` | EIA-860 plant download, match, and site enrichment |
 | `migrations` | sql files, version tracking, and the transactional migration runner |
 
 ## next
 
-add reactor-linked scram events and expose the data through an http api. the goal is a searchable dataset and map with traceable source records.
+add reactor-linked scram events and a hosted frontend over the plant-list API.
