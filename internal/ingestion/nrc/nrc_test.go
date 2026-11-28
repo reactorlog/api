@@ -88,25 +88,18 @@ func TestFetchURL(t *testing.T) {
 		}
 	})
 
-	t.Run("site headers", func(t *testing.T) {
-		want := map[string]string{
-			"User-Agent":     "Reactorlog/1.0 (NRC reference data ingestion)",
-			"Sec-Fetch-Dest": "document",
-			"Sec-Fetch-Mode": "navigate",
-			"Sec-Fetch-Site": "none",
-			"Sec-Fetch-User": "?1",
-		}
+	t.Run("user agent", func(t *testing.T) {
+		var userAgent string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for key, value := range want {
-				if got := r.Header.Get(key); got != value {
-					t.Errorf("%s = %q, want %q", key, got, value)
-				}
-			}
+			userAgent = r.Header.Get("User-Agent")
 			w.WriteHeader(http.StatusTeapot)
 		}))
 		defer server.Close()
 		if _, err := fetchURL(context.Background(), server.URL); err == nil || !strings.Contains(err.Error(), "HTTP 418") {
 			t.Fatal(err)
+		}
+		if userAgent != UserAgent {
+			t.Fatalf("User-Agent = %q, want %q", userAgent, UserAgent)
 		}
 	})
 

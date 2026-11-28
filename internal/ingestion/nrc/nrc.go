@@ -14,6 +14,7 @@ import (
 )
 
 const ListURL = "https://www.nrc.gov/facilities-safety/operating-reactors/list-power-reactor-units"
+const UserAgent = "Mozilla/5.0 (compatible; Reactorlog/1.0; +https://github.com/reactorlog/api)"
 const maxPageSize = 4 << 20
 
 type Reactor struct {
@@ -199,11 +200,7 @@ func fetchURL(ctx context.Context, pageURL string) ([]Reactor, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Reactorlog/1.0 (NRC reference data ingestion)")
-	req.Header.Set("Sec-Fetch-Dest", "document")
-	req.Header.Set("Sec-Fetch-Mode", "navigate")
-	req.Header.Set("Sec-Fetch-Site", "none")
-	req.Header.Set("Sec-Fetch-User", "?1")
+	req.Header.Set("User-Agent", UserAgent)
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
