@@ -13,6 +13,8 @@ primary_region = "iad"
 [env]
   HTTP_ADDR = ":8080"
   STATIC_DIR = "/app/static"
+  CORS_ORIGINS = "https://www.reactorlog.com"
+  CORS_ORIGINS = "https://www.reactorlog.com"
 
 [http_service]
   internal_port = 8080

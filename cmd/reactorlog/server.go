@@ -27,6 +27,7 @@ func runServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	handler = api.WithCORS(handler, api.ParseCORSOrigins(os.Getenv("CORS_ORIGINS")))
 	return listenAndServe(ctx, httpAddr(), handler)
 }
 
