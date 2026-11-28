@@ -12,13 +12,9 @@ SKILL = Path(__file__).resolve().parents[1]
 CONFIG = json.loads((SKILL / 'references' / 'coverage.json').read_text())
 
 def explore(broken=False):
-    # missing: loadDotEnv ignores os.ErrNotExist and exitCode calls run.
-    # blocking: any other godotenv.Load error makes exitCode return 1.
-    # loaded: godotenv.Load returns nil. broken flips only the run-error return to 0.
-    for dotenv, command_ok in product(('missing', 'blocking', 'loaded'), (False, True)):
-        if dotenv == 'blocking':
-            yield ['dotenv blocking failure', 'exit 1'], True
-            continue
+    for _command_ok in (False, True):
+        yield ['dotenv blocking failure', 'exit 1'], True
+    for dotenv, command_ok in product(('missing', 'loaded'), (False, True)):
         code = 0 if command_ok or broken else 1
         yield [f'dotenv {dotenv}', f'command success={command_ok}', f'exit {code}'], command_ok or code != 0
 
