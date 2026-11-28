@@ -15,32 +15,45 @@ const (
 	energyNUC      = "NUC"
 )
 
-// PlantsFromZip reads nuclear plants from an EIA-860 annual zip archive.
-func PlantsFromZip(zipBytes []byte) ([]Plant, error) {
+// PlantsFromZip reads nuclear plants and operable NUC generators from an EIA-860 zip.
+// Generators are indexed by plant code and are not stored on Plant.
+func PlantsFromZip(zipBytes []byte) ([]Plant, map[string][]Generator, error) {
 	plantName, genName, err := eia860Members(zipBytes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	plantRows, err := readZipSheet(zipBytes, plantName, plantSheetName)
 	if err != nil {
-		return nil, fmt.Errorf("read plant workbook: %w", err)
+		return nil, nil, fmt.Errorf("read plant workbook: %w", err)
 	}
 	genRows, err := readZipSheet(zipBytes, genName, genSheetName)
 	if err != nil {
-		return nil, fmt.Errorf("read generator workbook: %w", err)
+		return nil, nil, fmt.Errorf("read generator workbook: %w", err)
 	}
 	return plantsFromTables(plantRows, genRows)
 }
 
-func plantsFromTables(plantRows, genRows [][]string) ([]Plant, error) {
-	nuclearCodes, err := nuclearPlantCodes(genRows)
+func plantsFromTables(plantRows, genRows [][]string) ([]Plant, map[string][]Generator, error) {
+	generators, err := nuclearGenerators(genRows)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if len(nuclearCodes) == 0 {
-		return nil, fmt.Errorf("no operable NUC generators found")
+	if len(generators) == 0 {
+		return nil, nil, fmt.Errorf("no operable NUC generators found")
 	}
-	return plantsForCodes(plantRows, nuclearCodes)
+	plants, err := plantsForCodes(plantRows, generatorCodes(generators))
+	if err != nil {
+		return nil, nil, err
+	}
+	return plants, generators, nil
+}
+
+func generatorCodes(generators map[string][]Generator) map[string]bool {
+	codes := make(map[string]bool, len(generators))
+	for code := range generators {
+		codes[code] = true
+	}
+	return codes
 }
 
 func plantsForCodes(plantRows [][]string, nuclearCodes map[string]bool) ([]Plant, error) {
@@ -205,42 +218,91 @@ func validCoords(lat, lon float64) bool {
 	return lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180
 }
 
-func nuclearPlantCodes(genRows [][]string) (map[string]bool, error) {
+type genCols struct {
+	code, energy, id, mw int
+}
+
+func nuclearGenerators(genRows [][]string) (map[string][]Generator, error) {
 	header, data, err := splitHeader(genRows)
 	if err != nil {
 		return nil, fmt.Errorf("generator sheet: %w", err)
 	}
-	codeIdx, err := columnIndex(header, "Plant Code")
+	cols, err := generatorColumns(header)
 	if err != nil {
 		return nil, err
 	}
-	energyIdx, err := columnIndex(header, "Energy Source 1")
-	if err != nil {
-		return nil, err
-	}
-	return collectNUCCodes(data, codeIdx, energyIdx), nil
+	return collectGenerators(data, cols)
 }
 
-func collectNUCCodes(data [][]string, codeIdx, energyIdx int) map[string]bool {
-	out := map[string]bool{}
-	for _, row := range data {
-		if code, ok := nucCodeFromGenRow(row, codeIdx, energyIdx); ok {
-			out[code] = true
+func generatorColumns(header []string) (genCols, error) {
+	code, err := columnIndex(header, "Plant Code")
+	if err != nil {
+		return genCols{}, err
+	}
+	energy, err := columnIndex(header, "Energy Source 1")
+	if err != nil {
+		return genCols{}, err
+	}
+	id, err := columnIndex(header, "Generator ID")
+	if err != nil {
+		return genCols{}, err
+	}
+	mw, err := columnIndex(header, "Nameplate Capacity (MW)")
+	if err != nil {
+		return genCols{}, err
+	}
+	return genCols{code: code, energy: energy, id: id, mw: mw}, nil
+}
+
+func collectGenerators(data [][]string, cols genCols) (map[string][]Generator, error) {
+	out := map[string][]Generator{}
+	for i, row := range data {
+		generator, ok, err := generatorFromRow(row, cols)
+		if err != nil {
+			return nil, fmt.Errorf("generator sheet row %d: %w", i+2, err)
 		}
+		if !ok {
+			continue
+		}
+		out[generator.PlantCode] = append(out[generator.PlantCode], generator)
 	}
-	return out
+	return out, nil
 }
 
-func nucCodeFromGenRow(row []string, codeIdx, energyIdx int) (string, bool) {
-	code, err := cell(row, codeIdx)
+func generatorFromRow(row []string, cols genCols) (Generator, bool, error) {
+	code, ok := generatorPlantCode(row, cols)
+	if !ok {
+		return Generator{}, false, nil
+	}
+	if !rowIsNUC(row, cols) {
+		return Generator{}, false, nil
+	}
+	return nucGenerator(row, cols, code)
+}
+
+func generatorPlantCode(row []string, cols genCols) (string, bool) {
+	code, err := cell(row, cols.code)
 	if err != nil || code == "" || strings.HasPrefix(code, "NOTE") {
 		return "", false
 	}
-	fuel, _ := cell(row, energyIdx)
-	if strings.TrimSpace(fuel) != energyNUC {
-		return "", false
-	}
 	return normalizeCode(code), true
+}
+
+func rowIsNUC(row []string, cols genCols) bool {
+	fuel, _ := cell(row, cols.energy)
+	return strings.TrimSpace(fuel) == energyNUC
+}
+
+func nucGenerator(row []string, cols genCols, code string) (Generator, bool, error) {
+	id, err := requiredCell(row, cols.id, "Generator ID")
+	if err != nil {
+		return Generator{}, false, err
+	}
+	mw, err := parseFloatCell(row, cols.mw, "Nameplate Capacity (MW)")
+	if err != nil {
+		return Generator{}, false, err
+	}
+	return Generator{PlantCode: code, ID: normalizeCode(id), NameplateMW: mw}, true, nil
 }
 
 func splitHeader(rows [][]string) ([]string, [][]string, error) {

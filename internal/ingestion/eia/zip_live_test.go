@@ -14,7 +14,7 @@ func TestPlantsFromZipLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	plants, err := PlantsFromZip(body)
+	plants, _, err := PlantsFromZip(body)
 	if err != nil {
 		t.Fatal(err)
 	}

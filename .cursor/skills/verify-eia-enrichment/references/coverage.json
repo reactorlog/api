@@ -11,7 +11,7 @@
   "new": "longitude = incoming.longitude,\n    timezone = null,\n    updated_at = current_timestamp",
   "sha256": {
     "internal/ingestion/eia/sql/enrich.sql": "8b3e53b8c5d7a1ed0204ada1cfeb8302171a53d8f38f72ec9b6989d32309b9a0",
-    "migrations/sql/1_create_sites_and_reactors.up.sql": "3adfcf4a29d812291fa37ba382e80f93d7481722781f27e187c018c0b7d2ae38"
+    "migrations/sql/1_create_sites_and_reactors.up.sql": "a4e58f1441aea985a894f71d4fb1104071a194103f51fbdf1808b3f929f1c02f"
   },
   "test_package": "./internal/ingestion/eia",
   "test_name": "TestVerificationEiaEnrichmentColumns"

@@ -13,15 +13,15 @@ const ZipURL = "https://www.eia.gov/electricity/data/eia860/xls/eia8602025.zip"
 
 const maxZipSize = 64 << 20
 
-// Fetch downloads nuclear plants from the pinned EIA-860 zip.
-func Fetch(ctx context.Context) ([]Plant, error) {
+// Fetch downloads nuclear plants and operable NUC generators from the pinned EIA-860 zip.
+func Fetch(ctx context.Context) ([]Plant, map[string][]Generator, error) {
 	return fetchURL(ctx, ZipURL)
 }
 
-func fetchURL(ctx context.Context, zipURL string) ([]Plant, error) {
+func fetchURL(ctx context.Context, zipURL string) ([]Plant, map[string][]Generator, error) {
 	body, err := downloadZip(ctx, zipURL)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return PlantsFromZip(body)
 }

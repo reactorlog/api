@@ -14,6 +14,13 @@ type Plant struct {
 	Longitude    float64
 }
 
+// Generator is one operable nuclear unit from the EIA-860 operable sheet.
+type Generator struct {
+	PlantCode   string
+	ID          string
+	NameplateMW float64
+}
+
 // MatchMethod records how a site joined a plant.
 type MatchMethod string
 

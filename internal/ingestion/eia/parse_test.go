@@ -12,13 +12,13 @@ func TestPlantsFromTables(t *testing.T) {
 	}
 	genRows := [][]string{
 		{"title"},
-		{"x", "y", "Plant Code", "Plant Name", "Energy Source 1"},
-		{"", "", "6099", "Diablo Canyon", "NUC"},
-		{"", "", "100", "Coal Plant", "BIT"},
-		{"", "", "649", "Vogtle", "NUC"},
-		{"", "", "649", "Vogtle", "NUC"},
+		{"x", "y", "Plant Code", "Plant Name", "Generator ID", "Energy Source 1", "Nameplate Capacity (MW)"},
+		{"", "", "6099", "Diablo Canyon", "1", "NUC", "1138.5"},
+		{"", "", "100", "Coal Plant", "1", "BIT", "500"},
+		{"", "", "649", "Vogtle", "2", "NUC", "1102"},
+		{"", "", "649", "Vogtle", "1.0", "NUC", "1101"},
 	}
-	plants, err := plantsFromTables(plantRows, genRows)
+	plants, generators, err := plantsFromTables(plantRows, genRows)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,6 +42,17 @@ func TestPlantsFromTables(t *testing.T) {
 	if _, ok := byCode["100"]; ok {
 		t.Fatal("coal plant should be dropped")
 	}
+	diabloGens := generators["6099"]
+	if len(diabloGens) != 1 || diabloGens[0].ID != "1" || diabloGens[0].NameplateMW != 1138.5 {
+		t.Fatalf("diablo generators %+v", diabloGens)
+	}
+	vogtle := generators["649"]
+	if len(vogtle) != 2 || vogtle[0].ID != "2" || vogtle[0].NameplateMW != 1102 || vogtle[1].ID != "1" || vogtle[1].NameplateMW != 1101 {
+		t.Fatalf("vogtle generators %+v", vogtle)
+	}
+	if _, ok := generators["100"]; ok {
+		t.Fatal("coal generator should be dropped")
+	}
 }
 
 func TestPlantsFromTablesMissingColumn(t *testing.T) {
@@ -50,10 +61,10 @@ func TestPlantsFromTablesMissingColumn(t *testing.T) {
 		{"1", "X"},
 	}
 	genRows := [][]string{
-		{"Plant Code", "Energy Source 1"},
-		{"1", "NUC"},
+		{"Plant Code", "Generator ID", "Energy Source 1", "Nameplate Capacity (MW)"},
+		{"1", "1", "NUC", "100"},
 	}
-	if _, err := plantsFromTables(plantRows, genRows); err == nil {
+	if _, _, err := plantsFromTables(plantRows, genRows); err == nil {
 		t.Fatal("expected missing column error")
 	}
 }
@@ -64,10 +75,10 @@ func TestPlantsFromTablesMissingNuclearPlant(t *testing.T) {
 		{"1", "A", "100", "Coal", "1 Main", "Town", "TX", "75001", "Dallas", "32.0", "-96.0"},
 	}
 	genRows := [][]string{
-		{"Plant Code", "Energy Source 1"},
-		{"6099", "NUC"},
+		{"Plant Code", "Generator ID", "Energy Source 1", "Nameplate Capacity (MW)"},
+		{"6099", "1", "NUC", "100"},
 	}
-	if _, err := plantsFromTables(plantRows, genRows); err == nil {
+	if _, _, err := plantsFromTables(plantRows, genRows); err == nil {
 		t.Fatal("expected missing nuclear plant error")
 	}
 }
@@ -108,10 +119,38 @@ func TestDuplicatePlantCode(t *testing.T) {
 		{"1", "A", "6099", "Diablo Canyon", "Avila Rd", "Avila Beach", "CA", "93424", "SLO", "35.2", "-120.8"},
 	}
 	genRows := [][]string{
-		{"Plant Code", "Energy Source 1"},
-		{"6099", "NUC"},
+		{"Plant Code", "Generator ID", "Energy Source 1", "Nameplate Capacity (MW)"},
+		{"6099", "1", "NUC", "100"},
 	}
-	if _, err := plantsFromTables(plantRows, genRows); err == nil {
+	if _, _, err := plantsFromTables(plantRows, genRows); err == nil {
 		t.Fatal("expected duplicate plant code")
+	}
+}
+
+func TestPlantsFromTablesMissingNameplate(t *testing.T) {
+	plantRows := [][]string{
+		{"Plant Code", "Plant Name", "Street Address", "City", "State", "Zip", "Latitude", "Longitude"},
+		{"6099", "Diablo Canyon", "Avila Rd", "Avila Beach", "CA", "93424", "35.2", "-120.8"},
+	}
+	genRows := [][]string{
+		{"Plant Code", "Generator ID", "Energy Source 1"},
+		{"6099", "1", "NUC"},
+	}
+	if _, _, err := plantsFromTables(plantRows, genRows); err == nil {
+		t.Fatal("expected missing nameplate column")
+	}
+}
+
+func TestPlantsFromTablesMissingGeneratorID(t *testing.T) {
+	plantRows := [][]string{
+		{"Plant Code", "Plant Name", "Street Address", "City", "State", "Zip", "Latitude", "Longitude"},
+		{"6099", "Diablo Canyon", "Avila Rd", "Avila Beach", "CA", "93424", "35.2", "-120.8"},
+	}
+	genRows := [][]string{
+		{"Plant Code", "Generator ID", "Energy Source 1", "Nameplate Capacity (MW)"},
+		{"6099", "", "NUC", "1138"},
+	}
+	if _, _, err := plantsFromTables(plantRows, genRows); err == nil {
+		t.Fatal("expected missing generator id")
 	}
 }

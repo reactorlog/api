@@ -76,8 +76,8 @@ func TestAPIReadIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = pool.Exec(ctx, `
-		insert into reactors (site_id, name, unit_number, docket_number, reactor_type)
-		values ($1::uuid, 'Integration 1', '1', '05000999', 'PWR')
+		insert into reactors (site_id, name, unit_number, docket_number, reactor_type, capacity_mw)
+		values ($1::uuid, 'Integration 1', '1', '05000999', 'PWR', 1138.5)
 	`, siteID)
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func TestAPIReadIntegration(t *testing.T) {
 		if err := json.NewDecoder(reactorsRec.Body).Decode(&reactors); err != nil {
 			t.Fatal(err)
 		}
-		if len(reactors) != 1 || reactors[0].SiteID != siteID || reactors[0].Design != nil {
+		if len(reactors) != 1 || reactors[0].SiteID != siteID || reactors[0].Design != nil || reactors[0].CapacityMW == nil || *reactors[0].CapacityMW != 1138.5 {
 			t.Fatalf("reactors = %#v", reactors)
 		}
 	})
@@ -135,7 +135,7 @@ func TestAPIReadIntegration(t *testing.T) {
 		if err := json.NewDecoder(hit.Body).Decode(&detail); err != nil {
 			t.Fatal(err)
 		}
-		if detail.ID != siteID || detail.ReactorCount != len(detail.Reactors) || len(detail.Reactors) != 1 || detail.Reactors[0].DocketNumber != "05000999" {
+		if detail.ID != siteID || detail.ReactorCount != len(detail.Reactors) || len(detail.Reactors) != 1 || detail.Reactors[0].DocketNumber != "05000999" || detail.Reactors[0].CapacityMW == nil || *detail.Reactors[0].CapacityMW != 1138.5 {
 			t.Fatalf("detail = %#v", detail)
 		}
 

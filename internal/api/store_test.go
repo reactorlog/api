@@ -107,7 +107,7 @@ func reactorValues(now time.Time) []any {
 	return []any{
 		"22222222-2222-2222-2222-222222222222",
 		"11111111-1111-1111-1111-111111111111",
-		"Plant 1", "1", "05000001", "PWR", nil, now, now,
+		"Plant 1", "1", "05000001", "PWR", nil, nil, now, now,
 	}
 }
 
@@ -162,8 +162,14 @@ func TestScanSiteAndReactor(t *testing.T) {
 	}
 
 	reactor, err := scanReactor(stubScanner{values: reactorValues(now)})
-	if err != nil || reactor.DocketNumber != "05000001" {
+	if err != nil || reactor.DocketNumber != "05000001" || reactor.CapacityMW != nil {
 		t.Fatalf("reactor=%+v err=%v", reactor, err)
+	}
+	withMW := reactorValues(now)
+	withMW[7] = 1138.5
+	scanned, err := scanReactor(stubScanner{values: withMW})
+	if err != nil || scanned.CapacityMW == nil || *scanned.CapacityMW != 1138.5 {
+		t.Fatalf("reactor=%+v err=%v", scanned, err)
 	}
 	if _, err := scanReactor(stubScanner{err: errors.New("boom")}); err == nil {
 		t.Fatal("expected scanReactor error")

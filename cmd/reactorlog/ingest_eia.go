@@ -25,9 +25,10 @@ func runEIAPlantIngestion(ctx context.Context) error {
 		return fmt.Errorf("ingest EIA plant data: %w", err)
 	}
 	fmt.Printf(
-		"Enriched %d sites from EIA plants (%d rows updated, %d unused plants).\n",
+		"Enriched %d sites from EIA plants (%d site rows updated, %d reactor capacities updated, %d unused plants).\n",
 		result.Matched,
 		result.Updated,
+		result.ReactorsUpdated,
 		result.Skipped,
 	)
 	return nil

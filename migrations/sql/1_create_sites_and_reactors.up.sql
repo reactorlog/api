@@ -32,6 +32,7 @@ create table reactors (
     docket_number text not null,
     reactor_type text not null,
     design text,
+    capacity_mw double precision,
     created_at timestamptz not null default current_timestamp,
     updated_at timestamptz not null default current_timestamp,
     constraint reactors_docket_number_key unique (docket_number) include (site_id),

@@ -66,6 +66,16 @@ Against EIA-860 2025 and the current NRC-imported sites after soft match and ali
 - unused plants 1 (`Crane Clean Energy Center` / 8011)
 - first run updated 55 rows; second run updated 0 (idempotent)
 
+## Reactor capacity
+
+`ingest-eia-plants` also writes `reactors.capacity_mw`.
+
+The operable sheet supplies Generator ID and Nameplate Capacity (MW) for Energy Source 1 `NUC`. Generators stay in an index keyed by plant code. `Plant` does not carry them, so plant matching is unchanged.
+
+After a site matches a plant, the site's `unit_number` set must equal that plant's Generator ID set. The capacity update is in the same transaction as site enrichment. A row changes only when `capacity_mw` differs from the stored value.
+
+Details are in `docs/superpowers/specs/2026-11-28-reactor-capacity-mw-design.md`.
+
 ## Out of scope
 
 - Writing `eia_plant_code`, address, or coordinates

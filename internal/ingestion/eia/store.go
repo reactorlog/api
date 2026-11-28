@@ -17,6 +17,12 @@ var advisoryLockSQL string
 //go:embed sql/enrich.sql
 var enrichSQL string
 
+//go:embed sql/reactors_for_sites.sql
+var reactorsForSitesSQL string
+
+//go:embed sql/capacity.sql
+var capacitySQL string
+
 // DBTX is the database surface Import needs.
 type DBTX interface {
 	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
@@ -25,22 +31,23 @@ type DBTX interface {
 
 // ImportResult is what a successful Import did.
 type ImportResult struct {
-	Matched  int
-	Updated  int
-	Skipped  int
-	ByMethod map[MatchMethod]int
+	Matched         int
+	Updated         int
+	ReactorsUpdated int
+	Skipped         int
+	ByMethod        map[MatchMethod]int
 }
 
 // Import fetches EIA-860 nuclear plants, matches them to sites, and writes enrichment.
 func Import(ctx context.Context, db DBTX) (ImportResult, error) {
-	plants, err := Fetch(ctx)
+	plants, generators, err := Fetch(ctx)
 	if err != nil {
 		return ImportResult{}, err
 	}
-	return store(ctx, db, plants)
+	return store(ctx, db, plants, generators)
 }
 
-func store(ctx context.Context, db DBTX, plants []Plant) (ImportResult, error) {
+func store(ctx context.Context, db DBTX, plants []Plant, generators map[string][]Generator) (ImportResult, error) {
 	sites, err := listSites(ctx, db)
 	if err != nil {
 		return ImportResult{}, err
@@ -53,15 +60,16 @@ func store(ctx context.Context, db DBTX, plants []Plant) (ImportResult, error) {
 		return ImportResult{}, err
 	}
 	logMatchResult(result)
-	updated, err := commitEnrichment(ctx, db, result.Matched)
+	updated, reactorsUpdated, err := commitEnrichment(ctx, db, result.Matched, generators)
 	if err != nil {
 		return ImportResult{}, err
 	}
 	out := ImportResult{
-		Matched:  len(result.Matched),
-		Updated:  updated,
-		Skipped:  len(result.UnmatchedPlants),
-		ByMethod: countMethods(result.Matched),
+		Matched:         len(result.Matched),
+		Updated:         updated,
+		ReactorsUpdated: reactorsUpdated,
+		Skipped:         len(result.UnmatchedPlants),
+		ByMethod:        countMethods(result.Matched),
 	}
 	logImportComplete(out)
 	return out, nil
@@ -106,6 +114,7 @@ func logImportComplete(out ImportResult) {
 		"eia plant import complete",
 		"matched", out.Matched,
 		"updated", out.Updated,
+		"reactors_updated", out.ReactorsUpdated,
 		"skipped_plants", out.Skipped,
 		"exact", out.ByMethod[MatchExact],
 		"soft", out.ByMethod[MatchSoft],
@@ -113,23 +122,51 @@ func logImportComplete(out ImportResult) {
 	)
 }
 
-func commitEnrichment(ctx context.Context, db DBTX, matched []MatchedPlant) (int, error) {
+func commitEnrichment(ctx context.Context, db DBTX, matched []MatchedPlant, generators map[string][]Generator) (int, int, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("begin EIA import: %w", err)
+		return 0, 0, fmt.Errorf("begin EIA import: %w", err)
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, advisoryLockSQL); err != nil {
-		return 0, fmt.Errorf("lock EIA import: %w", err)
+		return 0, 0, fmt.Errorf("lock EIA import: %w", err)
+	}
+	updated, reactorsUpdated, err := writeMatched(ctx, tx, matched, generators)
+	if err != nil {
+		return 0, 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, 0, fmt.Errorf("commit EIA import: %w", err)
+	}
+	return updated, reactorsUpdated, nil
+}
+
+func writeMatched(ctx context.Context, tx *sql.Tx, matched []MatchedPlant, generators map[string][]Generator) (int, int, error) {
+	units, err := listReactorUnits(ctx, tx, siteNames(matched))
+	if err != nil {
+		return 0, 0, err
+	}
+	rows, err := assignments(matched, units, generators)
+	if err != nil {
+		return 0, 0, err
 	}
 	updated, err := writeEnrichment(ctx, tx, matched)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit EIA import: %w", err)
+	reactorsUpdated, err := writeCapacity(ctx, tx, rows)
+	if err != nil {
+		return 0, 0, err
 	}
-	return updated, nil
+	return updated, reactorsUpdated, nil
+}
+
+func siteNames(matched []MatchedPlant) []string {
+	names := make([]string, len(matched))
+	for i, matchedPlant := range matched {
+		names[i] = matchedPlant.SiteName
+	}
+	return names
 }
 
 func listSites(ctx context.Context, db DBTX) ([]string, error) {

@@ -9,7 +9,7 @@ import (
 )
 
 func TestVerificationImportKeepsEnrichment(t *testing.T) {
-	for _, word := range []string{"design", "timezone", "latitude", "longitude", "address"} {
+	for _, word := range []string{"design", "timezone", "latitude", "longitude", "address", "capacity_mw"} {
 		if strings.Contains(importSQL, word) {
 			t.Fatalf("import writes %s", word)
 		}

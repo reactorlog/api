@@ -25,8 +25,8 @@ func TestEia860MembersAndPlantsFromZip(t *testing.T) {
 	_, _ = genBook.NewSheet("Proposed")
 	_, _ = genBook.NewSheet("Retired and Canceled")
 	_ = genBook.SetSheetRow("Operable", "A1", &[]any{"title"})
-	_ = genBook.SetSheetRow("Operable", "A2", &[]any{"x", "y", "Plant Code", "Plant Name", "Energy Source 1"})
-	_ = genBook.SetSheetRow("Operable", "A3", &[]any{"", "", "6099", "Diablo Canyon", "NUC"})
+	_ = genBook.SetSheetRow("Operable", "A2", &[]any{"x", "y", "Plant Code", "Plant Name", "Generator ID", "Energy Source 1", "Nameplate Capacity (MW)"})
+	_ = genBook.SetSheetRow("Operable", "A3", &[]any{"", "", "6099", "Diablo Canyon", "1", "NUC", "1138.5"})
 	genBytes, err := genBook.WriteToBuffer()
 	if err != nil {
 		t.Fatal(err)
@@ -52,12 +52,15 @@ func TestEia860MembersAndPlantsFromZip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plants, err := PlantsFromZip(buf.Bytes())
+	plants, generators, err := PlantsFromZip(buf.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(plants) != 1 || plants[0].Code != "6099" {
 		t.Fatalf("%+v", plants)
+	}
+	if len(generators["6099"]) != 1 || generators["6099"][0].NameplateMW != 1138.5 {
+		t.Fatalf("%+v", generators)
 	}
 }
 

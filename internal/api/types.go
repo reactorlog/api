@@ -32,6 +32,7 @@ type Reactor struct {
 	DocketNumber string    `json:"docket_number"`
 	ReactorType  string    `json:"reactor_type"`
 	Design       *string   `json:"design"`
+	CapacityMW   *float64  `json:"capacity_mw"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
