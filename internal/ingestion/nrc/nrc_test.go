@@ -98,8 +98,8 @@ func TestFetchURL(t *testing.T) {
 		if _, err := fetchURL(context.Background(), server.URL); err == nil || !strings.Contains(err.Error(), "HTTP 418") {
 			t.Fatal(err)
 		}
-		if userAgent != "Go-http-client/1.1" {
-			t.Fatalf("User-Agent = %q", userAgent)
+		if userAgent != UserAgent {
+			t.Fatalf("User-Agent = %q, want %q", userAgent, UserAgent)
 		}
 	})
 
