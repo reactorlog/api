@@ -58,6 +58,10 @@ fly deploy --ha=false
 
 `fly.toml` checks `GET /live` (no DB ping). Do not probe `/health` on a short interval. GitHub Actions workflows: `migrate.yml`, `ingest.yml`, `deploy.yml` (secrets: `DATABASE_URL`, optional `DATABASE_URL_UNPOOLED`, `FLY_API_TOKEN`).
 
+When the SPA is on another origin (for example `https://www.reactorlog.com`), set `CORS_ORIGINS` to a comma-separated allowlist. `fly.toml` defaults it to `https://www.reactorlog.com`. Leave it empty for same-origin-only local runs. Browser calls stay under `/api/*` on the Fly host.
+
+When the SPA is on another origin (for example `https://www.reactorlog.com`), set `CORS_ORIGINS` to a comma-separated allowlist. `fly.toml` defaults it to `https://www.reactorlog.com`. Leave it empty for same-origin-only local runs. Browser calls stay under `/api/*` on the Fly host.
+
 once postgres is ready:
 
 ```sh
