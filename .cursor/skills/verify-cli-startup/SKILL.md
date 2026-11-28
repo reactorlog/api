@@ -20,11 +20,11 @@ A nonzero exit indicates a violated property, a surviving mutation, or source th
 
 ## coverage and model
 
-Read `references/coverage.json` and `scripts/verify.py` before interpreting a result. Covered functions are main, exitCode, run. Covered source paths and exact SHA-256 fingerprints are in the coverage record.
+Read `references/coverage.json` and `scripts/verify.py` before interpreting a result. Covered functions are main, exitCode, loadDotEnv, and run. Covered source paths and exact SHA-256 fingerprints are in the coverage record.
 
-Bounds are dotenv success/failure crossed with command success/failure. The checker exhaustively enumerates that finite abstraction. External operations are represented by outcomes. Model transitions are explained at the corresponding statements in the script. Database atomicity and transaction-scoped advisory locking are assumptions supplied by PostgreSQL. A commit error may represent either durable outcome.
+Bounds are a missing `.env`, a blocking dotenv load error, and a successful load, each crossed with command success and command failure. A missing file continues to the command. A blocking load error exits 1 before the command. The checker exhaustively enumerates that finite abstraction. External operations are represented by outcomes. Model transitions are explained at the corresponding statements in the script. Database atomicity and transaction-scoped advisory locking are assumptions supplied by PostgreSQL. A commit error may represent either durable outcome.
 
-Baseline commit is `231c1cb5c2b7338cdbc2e854d72daea2e647c493`. The inspected checkout contains uncommitted changes, so the fingerprints identify the actual baseline. The finite abstraction passed and the generated command caught a real Go source mutation, then passed again after restoration on 2026-11-16. The mutation and test selection are recorded in coverage.json. SQL mock checks establish the expected calls and ordering, while PostgreSQL semantics remain assumptions. Use `scripts/verify.py --mutation-test` for the faster model-only mutation check. The source-to-model correspondence remains manually reviewed.
+The fingerprints in `references/coverage.json` identify the reviewed `cmd/reactorlog/main.go`. The finite abstraction passed and `check_go_mutation.py` caught a command-failure exit mutation, then passed again after restoration on 2026-11-28. The mutation and test selection are recorded in coverage.json. SQL mock checks establish the expected calls and ordering, while PostgreSQL semantics remain assumptions. Use `scripts/verify.py --mutation-test` for the faster model-only mutation check. The source-to-model correspondence remains manually reviewed.
 
 ## maintain
 

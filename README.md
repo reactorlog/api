@@ -30,6 +30,8 @@ create a `.env` file in the repository root:
 DATABASE_URL=postgresql://reactorlog:reactorlog@localhost:5432/reactorlog?sslmode=disable
 ```
 
+omit the file when `DATABASE_URL` is already set.
+
 once postgres is ready:
 
 ```sh
@@ -38,7 +40,7 @@ make ingest-nrc
 make run
 ```
 
-open a database shell with `make db`. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, and `go run ./cmd/reactorlog server`; it loads `.env` on startup.
+open a database shell with `make db`. `make` and the cli load `.env` when the file is present. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, and `go run ./cmd/reactorlog server`. `server`, `migrate`, and `ingest-nrc` still require `DATABASE_URL`.
 
 ## NRC reference data
 
@@ -74,7 +76,7 @@ used to detect markup changes without network-dependent tests.
 make test
 ```
 
-`make test` loads the root `.env` file. `make test-db` creates an optional `reactorlog_test` database for local development. Database integration tests require `TEST_DATABASE_URL` pointing to a disposable PostgreSQL 18 database.
+`make test` loads the root `.env` file when it is present. `make test-db` creates an optional `reactorlog_test` database for local development. Database integration tests require `TEST_DATABASE_URL` pointing to a disposable PostgreSQL 18 database.
 
 ## benchmarks
 

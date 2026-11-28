@@ -23,7 +23,58 @@ func TestExitCode(t *testing.T) {
 		if code != 1 {
 			t.Fatalf("code = %d", code)
 		}
+		if strings.Contains(stderr, "load .env") {
+			t.Fatalf("stderr = %q", stderr)
+		}
+		if !strings.Contains(stderr, "command required: server, migrate, or ingest-nrc") {
+			t.Fatalf("stderr = %q", stderr)
+		}
+	})
+
+	t.Run("unreadable env file", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, ".env")
+		if err := os.WriteFile(path, []byte("DATABASE_URL=postgres://example\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(path, 0); err != nil {
+			t.Fatal(err)
+		}
+		t.Chdir(dir)
+
+		var code int
+		stderr := capture(t, &os.Stderr, func() {
+			code = exitCode(context.Background(), nil)
+		})
+		if code != 1 {
+			t.Fatalf("code = %d", code)
+		}
 		if !strings.Contains(stderr, "load .env") {
+			t.Fatalf("stderr = %q", stderr)
+		}
+		if strings.Contains(stderr, "command required") {
+			t.Fatalf("stderr = %q", stderr)
+		}
+	})
+
+	t.Run("invalid env file", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("DATABASE_URL=\"unterminated\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Chdir(dir)
+
+		var code int
+		stderr := capture(t, &os.Stderr, func() {
+			code = exitCode(context.Background(), nil)
+		})
+		if code != 1 {
+			t.Fatalf("code = %d", code)
+		}
+		if !strings.Contains(stderr, "load .env") {
+			t.Fatalf("stderr = %q", stderr)
+		}
+		if strings.Contains(stderr, "command required") {
 			t.Fatalf("stderr = %q", stderr)
 		}
 	})
