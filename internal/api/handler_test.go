@@ -131,6 +131,48 @@ func TestHandlerJSONIncludesReactorCount(t *testing.T) {
 	}
 }
 
+func TestReactorJSONCapacity(t *testing.T) {
+	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	mw := 1138.5
+	reactor := api.Reactor{
+		ID:           "22222222-2222-2222-2222-222222222222",
+		SiteID:       "11111111-1111-1111-1111-111111111111",
+		Name:         "Example 1",
+		UnitNumber:   "1",
+		DocketNumber: "05000001",
+		ReactorType:  "PWR",
+		CapacityMW:   &mw,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	rec := httptest.NewRecorder()
+	api.NewMux(&fakeStore{reactors: []api.Reactor{reactor}}).ServeHTTP(
+		rec,
+		httptest.NewRequest(http.MethodGet, "/reactors", nil),
+	)
+	var listed []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0]["capacity_mw"] != 1138.5 {
+		t.Fatalf("reactors = %s", rec.Body.Bytes())
+	}
+
+	reactor.CapacityMW = nil
+	empty := httptest.NewRecorder()
+	api.NewMux(&fakeStore{reactors: []api.Reactor{reactor}}).ServeHTTP(
+		empty,
+		httptest.NewRequest(http.MethodGet, "/reactors", nil),
+	)
+	var missing []map[string]any
+	if err := json.Unmarshal(empty.Body.Bytes(), &missing); err != nil {
+		t.Fatal(err)
+	}
+	if len(missing) != 1 || missing[0]["capacity_mw"] != nil {
+		t.Fatalf("reactors = %s", empty.Body.Bytes())
+	}
+}
+
 func TestHandlerEmptyListsAreJSONArrays(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/sites", nil)

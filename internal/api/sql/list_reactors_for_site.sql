@@ -6,6 +6,7 @@ select
     docket_number,
     reactor_type,
     design,
+    capacity_mw,
     created_at,
     updated_at
 from reactors

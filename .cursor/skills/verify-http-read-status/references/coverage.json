@@ -11,7 +11,7 @@
   "new": "writeJSON(w, http.StatusOK, detail)",
   "sha256": {
     "internal/api/handler.go": "6528645131b437c5d2850823f166c9e2505eb857e228c978fcf69dd8a35d5b39",
-    "internal/api/store.go": "37d3b2ace76f1052712cb729a19c7a1a060357e0c453b62f83fa7b580d7eb33f"
+    "internal/api/store.go": "4a04fe2d874e661e13bf54978e84130b2beacc3aec2372735b1b5c36dbf4be52"
   },
   "test_package": "./internal/api",
   "test_name": "TestHandlerStatusMapping"

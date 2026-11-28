@@ -222,6 +222,7 @@ func scanReactor(row siteScanner) (Reactor, error) {
 		&reactor.DocketNumber,
 		&reactor.ReactorType,
 		&reactor.Design,
+		&reactor.CapacityMW,
 		&reactor.CreatedAt,
 		&reactor.UpdatedAt,
 	)

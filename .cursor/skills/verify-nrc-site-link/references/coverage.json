@@ -11,7 +11,7 @@
   "new": "where occupied.name = incoming.site_name\n          and false",
   "sha256": {
     "internal/ingestion/nrc/sql/import.sql": "08562abe79562c2da757095da77c31e04f966530ab19055fc5ae86306f00b93c",
-    "migrations/sql/1_create_sites_and_reactors.up.sql": "3adfcf4a29d812291fa37ba382e80f93d7481722781f27e187c018c0b7d2ae38"
+    "migrations/sql/1_create_sites_and_reactors.up.sql": "a4e58f1441aea985a894f71d4fb1104071a194103f51fbdf1808b3f929f1c02f"
   },
   "test_package": "./internal/ingestion/nrc",
   "test_name": "TestVerificationNewDocketJoinsSite"
