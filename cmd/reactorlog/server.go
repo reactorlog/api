@@ -23,7 +23,22 @@ func runServer(ctx context.Context) error {
 		return err
 	}
 	defer pool.Close()
-	return listenAndServe(ctx, httpAddr(), api.NewMux(api.NewStore(pool)))
+	handler, err := publicHandler(api.NewMux(api.NewStore(pool)))
+	if err != nil {
+		return err
+	}
+	return listenAndServe(ctx, httpAddr(), handler)
+}
+
+// publicHandler keeps root API mux behavior when STATIC_DIR is unset.
+// With STATIC_DIR set, the SPA is served and the API is only under /api/*.
+func publicHandler(apiMux http.Handler) (http.Handler, error) {
+	staticDir := os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		return apiMux, nil
+	}
+	static := os.DirFS(staticDir)
+	return api.Public{API: apiMux, Static: static}, nil
 }
 
 func httpAddr() string {
