@@ -69,9 +69,9 @@ fails the transaction rather than merging the two sites.
 All rows are validated before database writes. Each run is transactional, concurrent
 imports are serialized, and repeated imports update existing records. Units absent
 from a later list are retained. The list does not provide timezone, design,
-coordinates, EIA codes, or contact details. The initial schema leaves timezone and
-design nullable so those fields stay NULL on new records and are preserved on
-existing records. No timezone is inferred from state.
+capacity_mw, coordinates, EIA codes, or contact details. The initial schema leaves
+timezone, design, and capacity_mw nullable so those fields stay NULL on new
+records and are preserved on existing records. No timezone is inferred from state.
 
 The parser fixture is the NRC unit table retrieved on November 5, 2026. It is
 used to detect markup changes without network-dependent tests.
@@ -84,6 +84,14 @@ Matching uses exact names, then deterministic soft tokens (strip station
 suffixes and operator prefixes), then a small checked-in alias map. Every site
 must match or the command fails. Extra EIA plants are logged and skipped.
 Run it after `ingest-nrc`.
+
+The same command writes each reactor's `capacity_mw` from Nameplate Capacity (MW)
+on the operable sheet, for rows whose Energy Source 1 is NUC. After a site matches
+a plant, that site's reactor `unit_number` values must be the same set as the
+plant's Generator IDs. The import fails when a unit has no generator, a generator
+has no unit, or either id is repeated. The update runs in the site enrichment transaction and changes
+`capacity_mw` only when the stored value differs. `ingest-nrc` does not write
+`capacity_mw`.
 
 ## tests
 
@@ -129,7 +137,7 @@ inconclusive comparison as inconclusive.
 | `internal/api` | read-only HTTP handlers and embedded SQL |
 | `internal/database` | postgres connection pool |
 | `internal/ingestion/nrc` | NRC list parsing and the import statement |
-| `internal/ingestion/eia` | EIA-860 plant download, match, and site enrichment |
+| `internal/ingestion/eia` | EIA-860 plant download, match, site enrichment, and reactor capacity |
 | `migrations` | sql files, version tracking, and the transactional migration runner |
 
 ## next
