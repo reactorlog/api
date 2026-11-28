@@ -13,7 +13,7 @@
   "sha256": {
     "internal/ingestion/nrc/sql/advisory_lock.sql": "0cfe0300d1f48b6cd2d49d979b7698383f03eb155011b8984a8efd569aa9eb1d",
     "internal/ingestion/nrc/store.go": "10c22590cce50c7bc4fe6c681dee3461e3fe56cc9397388892b357f52917cfb1",
-    "internal/ingestion/nrc/nrc.go": "6c52409ef55eff2916ae98c5fb4338b59378f8d85c5a7b772c953cdc83160c2b"
+    "internal/ingestion/nrc/nrc.go": "630cf1ed09d7e0cafacac55a87249fab4c187402b91d0d533d135b7fd8171f09"
   },
   "test_package": "./internal/ingestion/nrc",
   "test_name": "TestStoreCommitAndRollback"
