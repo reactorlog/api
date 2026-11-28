@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -13,8 +14,8 @@ func main() {
 }
 
 func exitCode(ctx context.Context, args []string) int {
-	if err := godotenv.Load(); err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Errorf("load .env: %w", err))
+	if err := loadDotEnv(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 
@@ -23,6 +24,13 @@ func exitCode(ctx context.Context, args []string) int {
 		return 1
 	}
 	return 0
+}
+
+func loadDotEnv() error {
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("load .env: %w", err)
+	}
+	return nil
 }
 
 func run(ctx context.Context, args []string) error {

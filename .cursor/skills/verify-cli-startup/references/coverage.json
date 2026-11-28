@@ -2,14 +2,14 @@
   "files": [
     "cmd/reactorlog/main.go"
   ],
-  "functions": "main, exitCode, run",
+  "functions": "main, exitCode, loadDotEnv, run",
   "property": "command failure yields a nonzero exit status",
   "harm": "automation can report a failed command as successful",
-  "bound": "dotenv success/failure crossed with command success/failure",
-  "old": "fmt.Fprintln(os.Stderr, err)\n\t\treturn 1",
-  "new": "fmt.Fprintln(os.Stderr, err)\n\t\treturn 0",
+  "bound": "missing dotenv, blocking dotenv failure, and dotenv success, each crossed with command success/failure",
+  "old": "if err := run(ctx, args); err != nil {\n\t\tfmt.Fprintln(os.Stderr, err)\n\t\treturn 1",
+  "new": "if err := run(ctx, args); err != nil {\n\t\tfmt.Fprintln(os.Stderr, err)\n\t\treturn 0",
   "sha256": {
-    "cmd/reactorlog/main.go": "fdf97f7f6c8e58837c2bd54c94d37a240a4b2d14c982e3bd13798ed4a132ea6b"
+    "cmd/reactorlog/main.go": "259a432e085bd642d896ffbedc398f7491d3429013cb001313e0f46a205b7092"
   },
   "test_package": "./cmd/reactorlog",
   "test_name": "TestExitCode"

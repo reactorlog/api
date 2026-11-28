@@ -1,12 +1,12 @@
 run:
 	@set -a; \
-	. ./.env; \
+	[ -f .env ] && . ./.env; \
 	set +a; \
 	go run ./cmd/reactorlog server
 
 migrate:
 	@set -a; \
-	. ./.env; \
+	[ -f .env ] && . ./.env; \
 	set +a; \
 	go run ./cmd/reactorlog migrate
 
@@ -18,7 +18,7 @@ ingest-nrc:
 
 test:
 	@set -a; \
-	. ./.env; \
+	[ -f .env ] && . ./.env; \
 	set +a; \
 	go test -count=1 ./...
 

@@ -12,13 +12,11 @@ SKILL = Path(__file__).resolve().parents[1]
 CONFIG = json.loads((SKILL / 'references' / 'coverage.json').read_text())
 
 def explore(broken=False):
-
-    for dotenv_ok, command_ok in product((False, True), repeat=2):
-        if not dotenv_ok:
-            yield ['dotenv failed', 'exit 1'], True
-            continue
+    for _command_ok in (False, True):
+        yield ['dotenv blocking failure', 'exit 1'], True
+    for dotenv, command_ok in product(('missing', 'loaded'), (False, True)):
         code = 0 if command_ok or broken else 1
-        yield ['dotenv loaded', f'command success={command_ok}', f'exit {code}'], command_ok or code != 0
+        yield [f'dotenv {dotenv}', f'command success={command_ok}', f'exit {code}'], command_ok or code != 0
 
 def check(broken=False):
     count = 0
