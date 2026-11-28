@@ -29,7 +29,7 @@ func TestExitCode(t *testing.T) {
 		if strings.Contains(stderr, "load .env") {
 			t.Fatalf("stderr = %q", stderr)
 		}
-		if !strings.Contains(stderr, "command required: server, migrate, or ingest-nrc") {
+		if !strings.Contains(stderr, "command required: server, migrate, ingest-nrc, or ingest-eia-plants") {
 			t.Fatalf("stderr = %q", stderr)
 		}
 	})

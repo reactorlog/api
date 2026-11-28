@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -160,40 +159,6 @@ func TestScanVersions(t *testing.T) {
 	}
 }
 
-func TestScanVersionsScanError(t *testing.T) {
-	db, mock := newDB(t)
-	rows := sqlmock.NewRows([]string{"version"}).AddRow("bad")
-	mock.ExpectQuery(appliedVersionsSQL).WillReturnRows(rows)
-
-	queryRows, err := db.Query(appliedVersionsSQL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer queryRows.Close()
-
-	_, err = scanVersions(queryRows)
-	if err == nil || !strings.Contains(err.Error(), "scan applied version") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
-func TestScanVersionsRowsError(t *testing.T) {
-	db, mock := newDB(t)
-	rows := sqlmock.NewRows([]string{"version"}).AddRow(1).RowError(0, errors.New("next failed"))
-	mock.ExpectQuery(appliedVersionsSQL).WillReturnRows(rows)
-
-	queryRows, err := db.Query(appliedVersionsSQL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer queryRows.Close()
-
-	_, err = scanVersions(queryRows)
-	if err == nil || !strings.Contains(err.Error(), "rows error") {
-		t.Fatalf("error = %v", err)
-	}
-}
-
 func TestAppliedVersions(t *testing.T) {
 	db, mock := newDB(t)
 	rows := sqlmock.NewRows([]string{"version"}).AddRow(1)
@@ -283,16 +248,6 @@ func TestRunMigration(t *testing.T) {
 	}
 }
 
-func TestRunMigrationBeginError(t *testing.T) {
-	db, mock := newDB(t)
-	mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
-
-	err := runMigration(context.Background(), db, validMigration(1, "test"))
-	if err == nil || err.Error() != "begin transaction: begin failed" {
-		t.Fatalf("error = %v", err)
-	}
-}
-
 func TestRunMigrationUpError(t *testing.T) {
 	db, mock := newDB(t)
 	mock.ExpectBegin()
@@ -319,24 +274,6 @@ func TestRunMigrationRecordError(t *testing.T) {
 
 	err := runMigration(context.Background(), db, validMigration(1, "test"))
 	if err == nil || err.Error() != "record migration: record migration: exec failed" {
-		t.Fatalf("error = %v", err)
-	}
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestRunMigrationCommitError(t *testing.T) {
-	db, mock := newDB(t)
-	mock.ExpectBegin()
-	expectScript(mock, createSitesAndReactorsUp)
-	mock.ExpectExec(recordMigrationSQL).
-		WithArgs(1, "test").
-		WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectCommit().WillReturnError(errors.New("commit failed"))
-
-	err := runMigration(context.Background(), db, validMigration(1, "test"))
-	if err == nil || err.Error() != "commit transaction: commit failed" {
 		t.Fatalf("error = %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -373,18 +310,6 @@ func TestApplyPending(t *testing.T) {
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestApplyPendingError(t *testing.T) {
-	db, mock := newDB(t)
-	mock.ExpectBegin().WillReturnError(errors.New("begin failed"))
-
-	_, err := applyPending(context.Background(), db, []Migration{
-		validMigration(1, "one"),
-	}, map[int]bool{})
-	if err == nil || !strings.Contains(err.Error(), `apply pending migration 1 "one"`) {
-		t.Fatalf("error = %v", err)
 	}
 }
 

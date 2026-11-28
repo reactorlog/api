@@ -1,0 +1,18 @@
+{
+  "files": [
+    "internal/ingestion/eia/sql/enrich.sql",
+    "migrations/sql/1_create_sites_and_reactors.up.sql"
+  ],
+  "functions": "writeEnrichment; enrich.sql; schema nullable timezone and location",
+  "property": "a committed EIA enrichment writes plant fields onto the site matched by name when they differ, and leaves timezone, location, and reactors unchanged",
+  "harm": "EIA enrich clears NRC-owned site fields or reactor design, or fails to apply plant data to the named site",
+  "bound": "one site and one reactor. fill empty enrichment, replace prior enrichment, skip identical enrichment, miss unmatched name",
+  "old": "longitude = incoming.longitude,\n    updated_at = current_timestamp",
+  "new": "longitude = incoming.longitude,\n    timezone = null,\n    updated_at = current_timestamp",
+  "sha256": {
+    "internal/ingestion/eia/sql/enrich.sql": "8b3e53b8c5d7a1ed0204ada1cfeb8302171a53d8f38f72ec9b6989d32309b9a0",
+    "migrations/sql/1_create_sites_and_reactors.up.sql": "3adfcf4a29d812291fa37ba382e80f93d7481722781f27e187c018c0b7d2ae38"
+  },
+  "test_package": "./internal/ingestion/eia",
+  "test_name": "TestVerificationEiaEnrichmentColumns"
+}
