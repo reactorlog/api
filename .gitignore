@@ -38,3 +38,6 @@ go.work.sum
 
 # Visual brainstorm companion sessions
 .superpowers/
+.neon
+node_modules/
+.env.local

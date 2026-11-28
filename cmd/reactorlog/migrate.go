@@ -53,10 +53,18 @@ func printMigrationResults(results []migrations.Result, duration time.Duration) 
 	)
 }
 
+func databaseURLForMigrate() string {
+	// Neon: migrations need the direct (unpooled) connection string.
+	if u := os.Getenv("DATABASE_URL_UNPOOLED"); u != "" {
+		return u
+	}
+	return os.Getenv("DATABASE_URL")
+}
+
 func runMigrations(ctx context.Context) error {
 	startedAt := time.Now()
 
-	databaseURL := os.Getenv("DATABASE_URL")
+	databaseURL := databaseURLForMigrate()
 	if databaseURL == "" {
 		return errors.New("DATABASE_URL is required")
 	}

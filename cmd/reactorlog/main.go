@@ -27,15 +27,20 @@ func exitCode(ctx context.Context, args []string) int {
 }
 
 func loadDotEnv() error {
-	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
+	// Neon CLI writes .env.local. Local docker setups often use .env.
+	// Load .env first, then overload from .env.local so neon env pull wins.
+	if err := godotenv.Load(".env"); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("load .env: %w", err)
+	}
+	if err := godotenv.Overload(".env.local"); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("load .env.local: %w", err)
 	}
 	return nil
 }
 
 func run(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("command required: server, migrate, ingest-nrc, or ingest-eia-plants")
+		return fmt.Errorf("command required: server, migrate, ingest-nrc, ingest-eia-plants, or storage-check")
 	}
 	return runCommand(ctx, args)
 }
@@ -50,6 +55,8 @@ func runCommand(ctx context.Context, args []string) error {
 		return runIngestArgs(ctx, args)
 	case "ingest-eia-plants":
 		return runEIAPlantArgs(ctx, args)
+	case "storage-check":
+		return runStorageCheckArgs(ctx, args)
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
