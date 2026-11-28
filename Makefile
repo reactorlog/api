@@ -16,6 +16,9 @@ db:
 ingest-nrc:
 	go run ./cmd/reactorlog ingest-nrc
 
+ingest-eia-plants:
+	go run ./cmd/reactorlog ingest-eia-plants
+
 test:
 	@set -a; \
 	[ -f .env ] && . ./.env; \

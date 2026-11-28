@@ -106,7 +106,7 @@ func TestRun(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 
 	err := run(context.Background(), nil)
-	if err == nil || err.Error() != "command required: server, migrate, or ingest-nrc" {
+	if err == nil || err.Error() != "command required: server, migrate, ingest-nrc, or ingest-eia-plants" {
 		t.Fatalf("error = %v", err)
 	}
 
@@ -130,6 +130,32 @@ func TestRun(t *testing.T) {
 	}
 	err = run(context.Background(), []string{"ingest-nrc", "unexpected"})
 	if err == nil || err.Error() != "usage: reactorlog ingest-nrc" {
+		t.Fatalf("error = %v", err)
+	}
+	err = run(context.Background(), []string{"ingest-eia-plants", "unexpected"})
+	if err == nil || err.Error() != "usage: reactorlog ingest-eia-plants" {
+		t.Fatalf("error = %v", err)
+	}
+	err = run(context.Background(), []string{"ingest-eia-plants"})
+	if err == nil || err.Error() != "DATABASE_URL is required" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRunEIAPlantIngestionRequiresDatabaseURL(t *testing.T) {
+	t.Setenv("DATABASE_URL", "")
+	err := runEIAPlantIngestion(context.Background())
+	if err == nil || err.Error() != "DATABASE_URL is required" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRunEIAPlantIngestionFetchFails(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://127.0.0.1:1/reactorlog?sslmode=disable")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := runEIAPlantIngestion(ctx)
+	if err == nil || !strings.Contains(err.Error(), "ingest EIA plant data:") {
 		t.Fatalf("error = %v", err)
 	}
 }

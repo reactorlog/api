@@ -40,7 +40,7 @@ make ingest-nrc
 make run
 ```
 
-open a database shell with `make db`. `make` and the cli load `.env` when the file is present. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, and `go run ./cmd/reactorlog server`. `server`, `migrate`, and `ingest-nrc` still require `DATABASE_URL`.
+open a database shell with `make db`. `make` and the cli load `.env` when the file is present. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, `go run ./cmd/reactorlog ingest-eia-plants`, and `go run ./cmd/reactorlog server`. `server`, `migrate`, `ingest-nrc`, and `ingest-eia-plants` still require `DATABASE_URL`.
 
 `server` listens on `HTTP_ADDR` (default `:8080`) and serves:
 
@@ -75,6 +75,15 @@ existing records. No timezone is inferred from state.
 
 The parser fixture is the NRC unit table retrieved on November 5, 2026. It is
 used to detect markup changes without network-dependent tests.
+
+## EIA plant enrichment
+
+`ingest-eia-plants` downloads Form EIA-860, keeps operable nuclear plants, and
+writes `eia_plant_code`, address fields, and coordinates onto existing sites.
+Matching uses exact names, then deterministic soft tokens (strip station
+suffixes and operator prefixes), then a small checked-in alias map. Every site
+must match or the command fails. Extra EIA plants are logged and skipped.
+Run it after `ingest-nrc`.
 
 ## tests
 
@@ -120,6 +129,7 @@ inconclusive comparison as inconclusive.
 | `internal/api` | read-only HTTP handlers and embedded SQL |
 | `internal/database` | postgres connection pool |
 | `internal/ingestion/nrc` | NRC list parsing and the import statement |
+| `internal/ingestion/eia` | EIA-860 plant download, match, and site enrichment |
 | `migrations` | sql files, version tracking, and the transactional migration runner |
 
 ## next
