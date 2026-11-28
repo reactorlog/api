@@ -20,6 +20,7 @@ type Site struct {
 	Email        *string   `json:"email"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	ReactorCount int       `json:"reactor_count"`
 }
 
 // Reactor is a reactor unit as returned by the read API.

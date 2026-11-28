@@ -86,6 +86,51 @@ func TestHandlerStatusMapping(t *testing.T) {
 	}
 }
 
+func TestHandlerJSONIncludesReactorCount(t *testing.T) {
+	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
+	site := api.Site{
+		ID:           "11111111-1111-1111-1111-111111111111",
+		Name:         "Example",
+		ReactorCount: 0,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	listRec := httptest.NewRecorder()
+	api.NewMux(&fakeStore{sites: []api.Site{site}}).ServeHTTP(
+		listRec,
+		httptest.NewRequest(http.MethodGet, "/sites", nil),
+	)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("status = %d", listRec.Code)
+	}
+	var listed []map[string]any
+	if err := json.Unmarshal(listRec.Body.Bytes(), &listed); err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0]["reactor_count"] != float64(0) {
+		t.Fatalf("sites = %s", listRec.Body.Bytes())
+	}
+
+	site.ReactorCount = 1
+	detailRec := httptest.NewRecorder()
+	api.NewMux(&fakeStore{site: api.SiteDetail{
+		Site: site,
+		Reactors: []api.Reactor{{
+			ID:     "22222222-2222-2222-2222-222222222222",
+			SiteID: site.ID,
+			Name:   "Example 1",
+		}},
+	}}).ServeHTTP(detailRec, httptest.NewRequest(http.MethodGet, "/sites/"+site.ID, nil))
+	var got map[string]any
+	if err := json.Unmarshal(detailRec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	reactors, _ := got["reactors"].([]any)
+	if got["reactor_count"] != float64(1) || len(reactors) != 1 {
+		t.Fatalf("detail = %s", detailRec.Body.Bytes())
+	}
+}
+
 func TestHandlerEmptyListsAreJSONArrays(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/sites", nil)

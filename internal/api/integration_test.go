@@ -82,6 +82,15 @@ func TestAPIReadIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var emptyID string
+	err = pool.QueryRow(ctx, `
+		insert into sites (name, location, state)
+		values ('Empty Site', 'Nowhere, ZZ', 'ZZ')
+		returning id::text
+	`).Scan(&emptyID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	mux := api.NewMux(api.NewStore(pool))
 
@@ -91,12 +100,15 @@ func TestAPIReadIntegration(t *testing.T) {
 		if sitesRec.Code != http.StatusOK {
 			t.Fatalf("sites status = %d", sitesRec.Code)
 		}
-		var sites []api.Site
-		if err := json.NewDecoder(sitesRec.Body).Decode(&sites); err != nil {
+		var raw []map[string]any
+		if err := json.NewDecoder(sitesRec.Body).Decode(&raw); err != nil {
 			t.Fatal(err)
 		}
-		if len(sites) != 1 || sites[0].ID != siteID || sites[0].Timezone != nil {
-			t.Fatalf("sites = %#v", sites)
+		if len(raw) != 2 || raw[0]["name"] != "Empty Site" || raw[0]["reactor_count"] != float64(0) || raw[0]["timezone"] != nil {
+			t.Fatalf("sites json = %#v", raw)
+		}
+		if raw[1]["id"] != siteID || raw[1]["reactor_count"] != float64(1) || raw[1]["timezone"] != nil {
+			t.Fatalf("sites json = %#v", raw)
 		}
 
 		reactorsRec := httptest.NewRecorder()
@@ -123,8 +135,22 @@ func TestAPIReadIntegration(t *testing.T) {
 		if err := json.NewDecoder(hit.Body).Decode(&detail); err != nil {
 			t.Fatal(err)
 		}
-		if detail.ID != siteID || len(detail.Reactors) != 1 || detail.Reactors[0].DocketNumber != "05000999" {
+		if detail.ID != siteID || detail.ReactorCount != len(detail.Reactors) || len(detail.Reactors) != 1 || detail.Reactors[0].DocketNumber != "05000999" {
 			t.Fatalf("detail = %#v", detail)
+		}
+
+		emptyHit := httptest.NewRecorder()
+		mux.ServeHTTP(emptyHit, httptest.NewRequest(http.MethodGet, "/sites/"+emptyID, nil))
+		if emptyHit.Code != http.StatusOK {
+			t.Fatalf("empty status = %d", emptyHit.Code)
+		}
+		var emptyRaw map[string]any
+		if err := json.NewDecoder(emptyHit.Body).Decode(&emptyRaw); err != nil {
+			t.Fatal(err)
+		}
+		reactors, _ := emptyRaw["reactors"].([]any)
+		if emptyRaw["reactor_count"] != float64(0) || len(reactors) != 0 {
+			t.Fatalf("empty detail = %#v", emptyRaw)
 		}
 
 		missID := "00000000-0000-0000-0000-000000000000"

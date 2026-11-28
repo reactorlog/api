@@ -78,6 +78,7 @@ func (s *PostgresStore) siteDetail(ctx context.Context, id string) (SiteDetail, 
 	if err != nil {
 		return SiteDetail{}, err
 	}
+	site.ReactorCount = len(reactors)
 	return SiteDetail{Site: site, Reactors: reactors}, nil
 }
 
@@ -108,7 +109,7 @@ type rowIterator interface {
 func collectSites(rows rowIterator) ([]Site, error) {
 	sites := make([]Site, 0)
 	for rows.Next() {
-		site, err := scanSite(rows)
+		site, err := scanListSite(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -156,6 +157,33 @@ func loadSite(row siteScanner) (Site, error) {
 
 type siteScanner interface {
 	Scan(dest ...any) error
+}
+
+func scanListSite(row siteScanner) (Site, error) {
+	var site Site
+	err := row.Scan(
+		&site.ID,
+		&site.EIAPlantCode,
+		&site.Name,
+		&site.Timezone,
+		&site.Latitude,
+		&site.Longitude,
+		&site.AddressLine1,
+		&site.AddressLine2,
+		&site.City,
+		&site.State,
+		&site.Location,
+		&site.Zip,
+		&site.Phone,
+		&site.Email,
+		&site.CreatedAt,
+		&site.UpdatedAt,
+		&site.ReactorCount,
+	)
+	if err != nil {
+		return Site{}, err
+	}
+	return site, nil
 }
 
 func scanSite(row siteScanner) (Site, error) {

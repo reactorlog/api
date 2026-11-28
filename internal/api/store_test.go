@@ -43,6 +43,8 @@ func (s stubScanner) Scan(dest ...any) error {
 			}
 		case *time.Time:
 			*ptr = value.(time.Time)
+		case *int:
+			*ptr = value.(int)
 		default:
 			return errors.New("unsupported scan destination")
 		}
@@ -97,6 +99,10 @@ func siteValues(now time.Time) []any {
 	}
 }
 
+func listSiteValues(now time.Time, reactorCount int) []any {
+	return append(siteValues(now), reactorCount)
+}
+
 func reactorValues(now time.Time) []any {
 	return []any{
 		"22222222-2222-2222-2222-222222222222",
@@ -143,6 +149,17 @@ func TestScanSiteAndReactor(t *testing.T) {
 	if _, err := scanSite(stubScanner{err: errors.New("boom")}); err == nil {
 		t.Fatal("expected scanSite error")
 	}
+	none, err := scanListSite(stubScanner{values: listSiteValues(now, 0)})
+	if err != nil || none.Name != "Plant" || none.ReactorCount != 0 {
+		t.Fatalf("list site=%+v err=%v", none, err)
+	}
+	counted, err := scanListSite(stubScanner{values: listSiteValues(now, 2)})
+	if err != nil || counted.ReactorCount != 2 {
+		t.Fatalf("list site=%+v err=%v", counted, err)
+	}
+	if _, err := scanListSite(stubScanner{err: errors.New("boom")}); err == nil {
+		t.Fatal("expected scanListSite error")
+	}
 
 	reactor, err := scanReactor(stubScanner{values: reactorValues(now)})
 	if err != nil || reactor.DocketNumber != "05000001" {
@@ -155,8 +172,8 @@ func TestScanSiteAndReactor(t *testing.T) {
 
 func TestCollectAndLoad(t *testing.T) {
 	now := time.Date(2026, 11, 17, 12, 0, 0, 0, time.UTC)
-	sites, err := collectSites(&stubRows{rows: []stubScanner{{values: siteValues(now)}}})
-	if err != nil || len(sites) != 1 {
+	sites, err := collectSites(&stubRows{rows: []stubScanner{{values: listSiteValues(now, 0)}}})
+	if err != nil || len(sites) != 1 || sites[0].ReactorCount != 0 {
 		t.Fatalf("sites=%v err=%v", sites, err)
 	}
 	if _, err := collectSites(&stubRows{err: errors.New("rows")}); err == nil {
@@ -185,12 +202,12 @@ func TestPostgresStoreReads(t *testing.T) {
 	id := "11111111-1111-1111-1111-111111111111"
 	store := &PostgresStore{db: &stubDB{
 		query: func(context.Context, string, ...any) (pgx.Rows, error) {
-			return &stubRows{rows: []stubScanner{{values: siteValues(now)}}}, nil
+			return &stubRows{rows: []stubScanner{{values: listSiteValues(now, 2)}}}, nil
 		},
 		row: stubScanner{values: siteValues(now)},
 	}}
 	sites, err := store.ListSites(context.Background())
-	if err != nil || len(sites) != 1 {
+	if err != nil || len(sites) != 1 || sites[0].ReactorCount != 2 {
 		t.Fatalf("ListSites=%v err=%v", sites, err)
 	}
 
@@ -216,8 +233,18 @@ func TestPostgresStoreReads(t *testing.T) {
 	}
 
 	detail, err := store.SiteByID(context.Background(), id)
-	if err != nil || detail.Name != "Plant" || len(detail.Reactors) != 1 {
+	if err != nil || detail.Name != "Plant" || detail.ReactorCount != len(detail.Reactors) || len(detail.Reactors) != 1 {
 		t.Fatalf("detail=%+v err=%v", detail, err)
+	}
+	zeroStore := &PostgresStore{db: &stubDB{
+		query: func(context.Context, string, ...any) (pgx.Rows, error) {
+			return &stubRows{}, nil
+		},
+		row: stubScanner{values: siteValues(now)},
+	}}
+	zero, err := zeroStore.SiteByID(context.Background(), id)
+	if err != nil || zero.ReactorCount != 0 || len(zero.Reactors) != 0 {
+		t.Fatalf("zero detail=%+v err=%v", zero, err)
 	}
 	if _, err := store.SiteByID(context.Background(), "bad"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("bad id: %v", err)
