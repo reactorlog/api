@@ -1,0 +1,42 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout api
+        uses: actions/checkout@v4
+
+      - name: checkout web
+        uses: actions/checkout@v4
+        with:
+          repository: reactorlog/web
+          path: web
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: build web
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: stage static
+        run: |
+          rm -rf static
+          mkdir -p static
+          cp -R web/dist/. static/
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: fly deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --ha=false --remote-only

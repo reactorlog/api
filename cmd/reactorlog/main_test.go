@@ -29,7 +29,7 @@ func TestExitCode(t *testing.T) {
 		if strings.Contains(stderr, "load .env") {
 			t.Fatalf("stderr = %q", stderr)
 		}
-		if !strings.Contains(stderr, "command required: server, migrate, ingest-nrc, or ingest-eia-plants") {
+		if !strings.Contains(stderr, "command required: server, migrate, ingest-nrc, ingest-eia-plants, or storage-check") {
 			t.Fatalf("stderr = %q", stderr)
 		}
 	})
@@ -106,7 +106,7 @@ func TestRun(t *testing.T) {
 	t.Setenv("DATABASE_URL", "")
 
 	err := run(context.Background(), nil)
-	if err == nil || err.Error() != "command required: server, migrate, ingest-nrc, or ingest-eia-plants" {
+	if err == nil || err.Error() != "command required: server, migrate, ingest-nrc, ingest-eia-plants, or storage-check" {
 		t.Fatalf("error = %v", err)
 	}
 

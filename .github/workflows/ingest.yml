@@ -1,0 +1,23 @@
+name: ingest
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, sparse enough for Neon Free scale-to-zero between runs.
+    - cron: "0 12 * * 0"
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: ingest-nrc then ingest-eia-plants
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          go build -o reactorlog ./cmd/reactorlog
+          ./reactorlog ingest-nrc
+          ./reactorlog ingest-eia-plants

@@ -1,0 +1,15 @@
+.git
+.worktrees
+.cursor
+.agents
+.superpowers
+.benchmarks
+docs
+scratch
+node_modules
+**/*_test.go
+reactorlog
+server
+*.md
+.env
+.env.local

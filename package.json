@@ -1,0 +1,12 @@
+{
+  "name": "reactorlog-api",
+  "private": true,
+  "scripts": {
+    "build": "go build -o reactorlog ./cmd/reactorlog",
+    "test": "go test ./..."
+  },
+  "dependencies": {
+    "@neon/config": "^1.14.8",
+    "@neon/env": "^2.1.11"
+  }
+}

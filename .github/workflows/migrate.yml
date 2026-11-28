@@ -1,0 +1,24 @@
+name: migrate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "migrations/**"
+      - ".github/workflows/migrate.yml"
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_UNPOOLED: ${{ secrets.DATABASE_URL_UNPOOLED }}
+        run: |
+          go build -o reactorlog ./cmd/reactorlog
+          ./reactorlog migrate

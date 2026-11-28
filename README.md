@@ -32,6 +32,32 @@ DATABASE_URL=postgresql://reactorlog:reactorlog@localhost:5432/reactorlog?sslmod
 
 omit the file when `DATABASE_URL` is already set.
 
+### Neon (hosted Postgres + object storage)
+
+The repo links to Neon project `nameless-term-76560583` via `.neon` and `neon.ts` (Postgres + private `excel` bucket). After `neon login`:
+
+```sh
+neon deploy          # reconcile neon.ts and refresh .env.local
+npm run build
+./reactorlog migrate
+./reactorlog storage-check
+./reactorlog server
+```
+
+`neon deploy` writes `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED` (direct), and AWS S3 env vars into `.env.local`. The CLI loads `.env` then overloads `.env.local`. `migrate` prefers `DATABASE_URL_UNPOOLED`. Object Storage uses the `excel` bucket (override with `STORAGE_BUCKET`).
+
+### Fly.io (API + website)
+
+Same-origin deploy: one Machine serves the Go API under `/api/*` and the Vite `dist` from `STATIC_DIR`. Free plan needs a card for the recurring $5 allowance. Deploy with one Machine:
+
+```sh
+# build web into ./static, then:
+fly secrets set DATABASE_URL=...
+fly deploy --ha=false
+```
+
+`fly.toml` checks `GET /live` (no DB ping). Do not probe `/health` on a short interval. GitHub Actions workflows: `migrate.yml`, `ingest.yml`, `deploy.yml` (secrets: `DATABASE_URL`, optional `DATABASE_URL_UNPOOLED`, `FLY_API_TOKEN`).
+
 once postgres is ready:
 
 ```sh
@@ -40,7 +66,7 @@ make ingest-nrc
 make run
 ```
 
-open a database shell with `make db`. `make` and the cli load `.env` when the file is present. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, `go run ./cmd/reactorlog ingest-eia-plants`, and `go run ./cmd/reactorlog server`. `server`, `migrate`, `ingest-nrc`, and `ingest-eia-plants` still require `DATABASE_URL`.
+open a database shell with `make db`. `make` and the cli load `.env` when the file is present, and overload `.env.local` when Neon has written one. the cli also accepts `go run ./cmd/reactorlog migrate`, `go run ./cmd/reactorlog ingest-nrc`, `go run ./cmd/reactorlog ingest-eia-plants`, `go run ./cmd/reactorlog storage-check`, and `go run ./cmd/reactorlog server`. `server`, `migrate`, `ingest-nrc`, and `ingest-eia-plants` still require `DATABASE_URL`.
 
 `server` listens on `HTTP_ADDR` (default `:8080`) and serves:
 
