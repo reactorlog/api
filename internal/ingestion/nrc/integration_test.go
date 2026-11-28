@@ -113,7 +113,7 @@ func TestImportLinksSetwise(t *testing.T) {
 	if count, err := store(ctx, db, first); err != nil || count != 2 {
 		t.Fatalf("count=%d err=%v", count, err)
 	}
-	if _, err := db.ExecContext(ctx, `update reactors set design = 'kept', updated_at = '2000-01-01'`); err != nil {
+	if _, err := db.ExecContext(ctx, `update reactors set design = 'kept', capacity_mw = 1138.5, updated_at = '2000-01-01'`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.ExecContext(ctx, `update sites set timezone = 'America/Chicago', updated_at = '2000-01-01'`); err != nil {
@@ -123,11 +123,12 @@ func TestImportLinksSetwise(t *testing.T) {
 		t.Fatal(err)
 	}
 	var updatedAt, design, timezone string
-	if err := db.QueryRowContext(ctx, `select updated_at::text, design from reactors where docket_number = '05000001'`).Scan(&updatedAt, &design); err != nil {
+	var capacity sql.NullFloat64
+	if err := db.QueryRowContext(ctx, `select updated_at::text, design, capacity_mw from reactors where docket_number = '05000001'`).Scan(&updatedAt, &design, &capacity); err != nil {
 		t.Fatal(err)
 	}
-	if design != "kept" || !strings.HasPrefix(updatedAt, "2000-01-01") {
-		t.Fatalf("design=%s updated_at=%s", design, updatedAt)
+	if design != "kept" || !capacity.Valid || capacity.Float64 != 1138.5 || !strings.HasPrefix(updatedAt, "2000-01-01") {
+		t.Fatalf("design=%s capacity=%v updated_at=%s", design, capacity, updatedAt)
 	}
 	if err := db.QueryRowContext(ctx, `select timezone, updated_at::text from sites`).Scan(&timezone, &updatedAt); err != nil {
 		t.Fatal(err)
@@ -155,10 +156,11 @@ func TestImportLinksSetwise(t *testing.T) {
 		t.Fatalf("distinct sites=%s err=%v", siteID, err)
 	}
 	var newDesign sql.NullString
-	if err := db.QueryRowContext(ctx, `select design from reactors where docket_number = '05000003'`).Scan(&newDesign); err != nil {
+	var newCapacity sql.NullFloat64
+	if err := db.QueryRowContext(ctx, `select design, capacity_mw from reactors where docket_number = '05000003'`).Scan(&newDesign, &newCapacity); err != nil {
 		t.Fatal(err)
 	}
-	if newDesign.Valid {
-		t.Fatalf("new design=%q", newDesign.String)
+	if newDesign.Valid || newCapacity.Valid {
+		t.Fatalf("new design=%q capacity=%v", newDesign.String, newCapacity)
 	}
 }

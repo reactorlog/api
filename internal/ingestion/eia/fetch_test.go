@@ -18,12 +18,12 @@ func TestFetchURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	plants, err := fetchURL(context.Background(), server.URL)
+	plants, generators, err := fetchURL(context.Background(), server.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(plants) != 1 {
-		t.Fatalf("%+v", plants)
+	if len(plants) != 1 || len(generators["1"]) != 1 || generators["1"][0].ID != "1" {
+		t.Fatalf("plants=%+v generators=%+v", plants, generators)
 	}
 }
 
@@ -32,7 +32,7 @@ func TestFetchURLHTTPError(t *testing.T) {
 		w.WriteHeader(http.StatusBadGateway)
 	}))
 	defer server.Close()
-	if _, err := fetchURL(context.Background(), server.URL); err == nil {
+	if _, _, err := fetchURL(context.Background(), server.URL); err == nil {
 		t.Fatal("expected HTTP error")
 	}
 }
@@ -59,8 +59,8 @@ func miniZip(t *testing.T) []byte {
 	_, _ = genBook.NewSheet("Proposed")
 	_, _ = genBook.NewSheet("Retired and Canceled")
 	_ = genBook.SetSheetRow("Operable", "A1", &[]any{"title"})
-	_ = genBook.SetSheetRow("Operable", "A2", &[]any{"x", "y", "Plant Code", "Plant Name", "Energy Source 1"})
-	_ = genBook.SetSheetRow("Operable", "A3", &[]any{"", "", "1", "Site", "NUC"})
+	_ = genBook.SetSheetRow("Operable", "A2", &[]any{"x", "y", "Plant Code", "Plant Name", "Generator ID", "Energy Source 1", "Nameplate Capacity (MW)"})
+	_ = genBook.SetSheetRow("Operable", "A3", &[]any{"", "", "1", "Site", "1", "NUC", "100"})
 	genBytes, err := genBook.WriteToBuffer()
 	if err != nil {
 		t.Fatal(err)
